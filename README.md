@@ -1,0 +1,2 @@
+# spendings-list
+
