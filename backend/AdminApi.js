@@ -147,13 +147,22 @@ function adminUsers() {
   return list;
 }
 
+// Like findRowIndex, but compares normalized names case-insensitively (users only).
+function findUserRowIndexByTypedName(values, name) {
+  var key = nameKey(name);
+  for (var i = 1; i < values.length; i++) {
+    if (values[i][0] !== '' && nameKey(values[i][0]) === key) return i;
+  }
+  return -1;
+}
+
 function addUser(payload) {
-  var name = validateName(payload.name, 'name');
+  var name = normalizeName(validateName(payload.name, 'name'));
   var pin = validatePin(payload.pin, 'member');
 
   return withLock(function () {
     var sheet = getUsersSheet();
-    if (findRowIndex(readAll(sheet), name) >= 0) {
+    if (findUserRowIndexByTypedName(readAll(sheet), name) >= 0) {
       throw new ApiError('CONFLICT', 'User already exists');
     }
     setPinForUser(name, pin);

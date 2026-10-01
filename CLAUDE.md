@@ -67,11 +67,12 @@ One endpoint: the Apps Script web app URL.
 
 ## Auth
 
-- Login = pick your name from a list + enter PIN. Member PIN: 4 digits. Admin PIN: 6 digits.
+- Login = type your name + enter PIN (no list of names is shown). Member PIN: 4 digits. Admin PIN: 6 digits.
+- **Typed names**: `login` normalizes the typed name (trim, collapse inner whitespace, Unicode NFC) and compares it case-insensitively (Latin and Cyrillic) with `Users.name`. The canonical spelling from the Sheet goes into the token and the response. `addUser` rejects (`CONFLICT`) a name equal to an existing one after the same normalization, inactive users included, and stores the normalized name.
 - PINs are stored hashed in Script Properties: key `pin:<userName>` = SHA-256(salt + pin) hex, with `PIN_SALT` also in Script Properties.
 - **Session token is stateless**: `base64url(JSON{u: name, exp: unixSeconds, v: tokenVersion}) + "." + HMAC-SHA256(payload, TOKEN_SECRET)`. `TOKEN_SECRET` in Script Properties. Lifetime 90 days. `tokenVersion` per user (`tv:<userName>` property) is bumped on `setPin`/`changePin`/user deactivation, which invalidates old tokens.
 - Every authenticated request: verify signature and expiry, check `v` matches, then **look up the user and role from the Users sheet on the server**. Never trust role data from the client. Implement `requireUser(token)` and `requireAdmin(token)`.
-- **Lockout**: 5 wrong PINs for a user within 15 min → `LOCKED` for 15 min (CacheService counter per user name). Same error message for wrong name/wrong PIN.
+- **Lockout**: 5 wrong PINs for a user within 15 min → `LOCKED` for 15 min (CacheService counter keyed by the NORMALIZED name, so "Petar", "petar" and " PETAR " share one counter; `setPin` by the admin clears it). Names that match no user share ONE common counter (limit 20 failures per 15 min), so random names cannot fill the cache; that bucket never blocks a real user. Wrong name and wrong PIN return the identical code (`UNAUTHORIZED`) and message.
 - Bootstrap PINs without committing them: add an `onOpen` custom menu in the Sheet ("Expenses admin" → "Set PIN for user…") that uses `SpreadsheetApp.getUi().prompt()` twice (name, PIN). The same hashing function is used by the `setPin` endpoint. Also provide a one-off `initSecrets()` that generates `PIN_SALT` and `TOKEN_SECRET` if missing.
 
 ## Endpoints
@@ -80,8 +81,8 @@ Legend: **P** public, **U** any logged-in user, **A** admin only.
 
 | Action | Role | Payload | Returns |
 |---|---|---|---|
-| `loginOptions` | P | none | `{ users: string[] }` active user names only |
-| `login` | P | `{ user, pin }` | `{ token, expiresAt, user: { name, role } }` |
+| `loginOptions` | P | none | `{ users: string[] }` active user names only. **Deprecated**: the new login screen does not call it; it stays until the new frontend is live, then it will be removed. |
+| `login` | P | `{ user, pin }` (`user` as typed; see Typed names) | `{ token, expiresAt, user: { name, role } }` |
 | `me` | U | none | `{ name, role }` |
 | `bootstrap` | U | `{ month?: "YYYY-MM" }` | `{ me, categories, expenses }`: `me` as `me`, `categories` as `categories`, `expenses` exactly as `listExpenses` returns for that month for this user (same auth and ownership rules). One request on app start instead of three. |
 | `categories` | U | none | active categories `[{ name, color, order }]` sorted by order |
@@ -146,7 +147,7 @@ There is **no** `deleteCategory` and no `deleteUser`: only `active = false`, so 
 - sends a `requestId` with every request and rejects any response whose echoed `action` / `requestId` does not match, or that has none;
 - retries up to 3 times, 2 s apart, after HTTP 404 / 5xx / no response / an unusable body, with the same body and `requestId` (safe because of idempotency);
 - on failure prints the HTTP status, the redirect `Location` host (host only) and the body length, and returns `{ ok = $false; error = { code = 'TRANSPORT'; message } }`.
-`test-step3.ps1` aborts at once if a login returns no token. Run order: step 2, 3, 4.
+`test-step3.ps1` aborts at once if a login returns no token. `test-step5.ps1` covers login by typed name (case, padding, canonical name), the lockout over name variants (the member's counter is cleared in `finally` by the admin's `setPin`), identical errors for wrong name and wrong PIN, and `addUser` name conflicts (`-TestAddUser` also creates and deactivates a throwaway user). Run order: step 2, 3, 4, 5.
 
 ## Workflow and order of work
 
