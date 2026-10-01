@@ -18,41 +18,9 @@ param(
 $API_URL = $env:API_URL
 if (-not $API_URL) { throw 'Set $env:API_URL first' }
 
-# Warm-up GET (doGet pong) so a cold start doesn't hit the first real test.
-try { [void](Invoke-RestMethod -Uri $API_URL -Method Get) }
-catch { Write-Host "warm-up GET failed: $($_.Exception.Message)" -ForegroundColor Yellow }
-
-# Only read-only and login actions are retried (3 tries, 2s pause, on HTTP 404 or transport error).
-# Mutating actions are never retried and throw on failure.
-$retryable = @('loginOptions', 'login', 'me', 'categories', 'listExpenses', 'summary',
-  'adminSummary', 'adminCategories', 'adminUsers')
-
-# Mutating actions get a fresh requestId (the server replays a repeated one instead of running it twice).
-$mutatingActions = @('addExpense', 'updateExpense', 'deleteExpense', 'changePin', 'addCategory',
-  'updateCategory', 'renameCategory', 'addUser', 'setUserActive', 'setPin')
-
-function Api($action, $payload = @{}, $token = $null) {
-  $request = @{ action = $action; token = $token; payload = $payload }
-  if ($mutatingActions -contains $action) { $request.requestId = [guid]::NewGuid().ToString('N') }
-  $body = $request | ConvertTo-Json -Depth 5 -Compress
-  $attempts = if ($retryable -contains $action) { 3 } else { 1 }
-  for ($i = 1; $i -le $attempts; $i++) {
-    try {
-      return Invoke-RestMethod -Uri $API_URL -Method Post -ContentType 'text/plain;charset=utf-8' `
-        -Body ([Text.Encoding]::UTF8.GetBytes($body))
-    }
-    catch {
-      $err = $_
-      $status = if ($err.Exception.Response) { [int]$err.Exception.Response.StatusCode } else { 0 }
-      $canRetry = ($status -eq 0 -or $status -eq 404) -and $i -lt $attempts
-      if (-not $canRetry) { break }
-      Start-Sleep -Seconds 2
-    }
-  }
-  if ($attempts -eq 1) { throw $err }
-  # Retryable call still failed: report it as a failed response so the test shows the cause.
-  [pscustomobject]@{ ok = $false; error = [pscustomobject]@{ code = 'TRANSPORT'; message = $err.Exception.Message } }
-}
+# Api helper, redirect handling, retries and echo check live in test-lib.ps1.
+. "$PSScriptRoot\test-lib.ps1"
+Invoke-WarmUp
 
 $script:fails = 0
 # Pass the response as $res on login checks: a FAIL then prints why (never the PIN or token).
