@@ -17,7 +17,7 @@ function jsonOk(data) {
 // Apps Script re-evaluates globals for every execution, so this is per request.
 
 function newRequestState() {
-  return { prof: {}, stack: [], ss: null, props: null, lockHeld: false, action: '', debug: false };
+  return { prof: {}, stack: [], ss: null, props: null, lockHeld: false, action: '', requestId: undefined };
 }
 
 var REQ = newRequestState();
@@ -122,12 +122,15 @@ function onEdit(e) {
 // ---- Responses ----
 
 // Builds the HTTP response. "ms" is always added; "timing" only for debug requests.
-// Never throws: if the result cannot be built, a minimal JSON error is returned instead.
+// "action" and (when the request had one) "requestId" are echoed back, so a client can
+// tell that a response belongs to its request. Never throws: if the result cannot be built, a minimal JSON error is returned instead.
 // Logs one line per request: action, result code, ms (never PIN, token or payload).
 function respond(result, startedAt, debug) {
   try {
     var total = Date.now() - startedAt;
     result.ms = total;
+    if (REQ.action !== '') result.action = REQ.action;
+    if (REQ.requestId !== undefined) result.requestId = REQ.requestId;
     if (debug) {
       var p = REQ.prof;
       result.timing = {
@@ -336,7 +339,8 @@ function doPost(e) {
     debug = body.debug === true;
 
     var action = body.action;
-    REQ.action = String(action).substring(0, 40);
+    REQ.action = String(action).substring(0, 64);
+    if (body.requestId !== undefined && body.requestId !== null) REQ.requestId = String(body.requestId).substring(0, 128);
     var handler = ACTIONS[action];
     if (!handler) {
       return respond(errorBody('BAD_REQUEST', 'Unknown action: ' + action), startedAt, debug);
