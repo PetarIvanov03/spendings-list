@@ -61,7 +61,7 @@ export function Shell({ user, onLogout, onPinChanged }: {
         </div>
         {tab === 'list' && <ListScreen user={user} />}
         {tab === 'summary' && <SummaryScreen user={user} />}
-        {tab === 'admin' && isAdmin && <AdminScreen />}
+        {tab === 'admin' && isAdmin && <AdminScreen user={user} />}
       </main>
 
       <nav className="tabbar" aria-label="Основна навигация">

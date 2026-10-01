@@ -641,3 +641,93 @@ button.danger {
   border-radius: 7px;
   min-width: 4px;
 }
+
+/* ---- admin ---- */
+.admin-list {
+  margin: 8px 0 16px;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--field);
+}
+
+.admin-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px 6px 12px;
+}
+
+.admin-row + .admin-row {
+  border-top: 1px solid var(--border);
+}
+
+.admin-row.dim .admin-name {
+  opacity: 0.55;
+}
+
+.admin-name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.admin-name .badge {
+  margin-left: 0;
+}
+
+.row-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+}
+
+.row-actions .icon-btn {
+  font-size: 16px;
+}
+
+.cat-chip {
+  padding: 6px 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  overflow-wrap: anywhere;
+}
+
+.wide {
+  width: 100%;
+  margin-top: 8px;
+}
+
+.swatches {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0;
+}
+
+.swatch {
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
+  padding: 0;
+  border: 2px solid var(--border);
+  border-radius: 50%;
+}
+
+.swatch.on {
+  border-color: var(--fg);
+  box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--fg);
+}
+
+.color-input {
+  width: 44px;
+  min-height: 44px;
+  height: 44px;
+  padding: 2px;
+  border-radius: 50%;
+}
