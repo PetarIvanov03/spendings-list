@@ -49,12 +49,14 @@ Spreadsheet time zone is Sofia. The script never reads the `Summary` tab (it is 
 One endpoint: the Apps Script web app URL.
 
 - `POST` with header `Content-Type: text/plain;charset=utf-8` and a JSON string body. This avoids a CORS preflight, which Apps Script cannot answer. **Do not add any custom headers** from the frontend.
-- Request: `{ "action": "addExpense", "token": "...", "payload": { ... } }`
+- Request: `{ "action": "addExpense", "token": "...", "payload": { ... }, "requestId": "...", "debug": true }`. `requestId` and `debug` are optional (see below).
 - Response: always HTTP 200 (Apps Script can't set status codes). Body:
   - success: `{ "ok": true, "data": ... }`
   - failure: `{ "ok": false, "error": { "code": "FORBIDDEN", "message": "..." } }`
+  - Every response also carries `"ms"`: server execution time in milliseconds. With `"debug": true` in the request it also carries `"timing": { auth, open, read, lock, handler, total }` (ms; the phases are exclusive of each other: `auth` = token check, `open` = opening the spreadsheet, `read` = sheet, cache and property reads, `lock` = waiting for the script lock, `handler` = the rest of the action). The frontend sends `debug` only when `localStorage.debug === "1"` and then logs one line per call (browser round trip, server `ms`, the difference = network + redirect + queueing, the breakdown) and keeps the last calls in `window.__apiTimings`.
 - Error codes: `BAD_REQUEST`, `UNAUTHORIZED`, `FORBIDDEN`, `LOCKED`, `NOT_FOUND`, `CONFLICT`, `SERVER_ERROR`.
 - `doGet` returns `{ok:true,data:"pong"}` (health check only).
+- **Idempotency (`requestId`)**: any request may carry `requestId` (8-64 chars, `[A-Za-z0-9_-]`; anything else is `BAD_REQUEST`). It only has an effect on the mutating actions `addExpense`, `updateExpense`, `deleteExpense`, `changePin`, `addCategory`, `updateCategory`, `renameCategory`, `addUser`, `setUserActive`, `setPin`. Those run under the script lock; inside that lock the server looks up the script-cache key `req:<userName>:<requestId>` and, if found, returns the stored response WITHOUT executing the action; otherwise it executes and stores the success response (30 minutes, skipped above ~90 KB). Errors are not stored. The key includes the user name, so another user cannot replay or read the response. Not used for `login` or reads. Reason: Apps Script sometimes executes a request and the client never receives the response, so the client retries with the SAME `requestId`. Known limit: a replayed `changePin` is answered `UNAUTHORIZED`, because the first execution already invalidated the token.
 - Test with curl (the `-L` is required, Apps Script redirects):
   ```
   curl -L -X POST -H 'Content-Type: text/plain' -d '{"action":"loginOptions"}' "$API_URL"
@@ -79,6 +81,7 @@ Legend: **P** public, **U** any logged-in user, **A** admin only.
 | `loginOptions` | P | none | `{ users: string[] }` active user names only |
 | `login` | P | `{ user, pin }` | `{ token, expiresAt, user: { name, role } }` |
 | `me` | U | none | `{ name, role }` |
+| `bootstrap` | U | `{ month?: "YYYY-MM" }` | `{ me, categories, expenses }`: `me` as `me`, `categories` as `categories`, `expenses` exactly as `listExpenses` returns for that month for this user (same auth and ownership rules). One request on app start instead of three. |
 | `categories` | U | none | active categories `[{ name, color, order }]` sorted by order |
 | `addExpense` | U | `{ date, item, price, category }` | created expense |
 | `listExpenses` | U | `{ month?: "YYYY-MM", limit?: number }` | expenses, newest first. **Members: only their own rows, enforced server-side.** Admin: all rows, optional `user` filter |
@@ -106,7 +109,12 @@ There is **no** `deleteCategory` and no `deleteUser`: only `active = false`, so 
 - **Summary** is computed in script from `Expenses` for the given month (string compare on `yyyy-MM`). Include categories that appear in expenses even if inactive/removed. Round sums to 2 decimals.
 - Never deactivate the last active admin; never change a user's role through the API (role changes are done manually in the Sheet).
 - Users cannot be renamed in v1 (would orphan `Expenses.user`).
-- Performance: read the sheet once per request with `getValues()` on the used range; no per-row calls. Data is small (thousands of rows at most).
+- Performance (platform floor is about 1 s per call, so keep each request to a few service calls):
+  - Script Properties are read once per request with `getProperties()`; the spreadsheet is opened lazily, once per request.
+  - The `Users` and `Categories` rows are cached in the script cache (JSON, 10 minutes). Every API write that changes them (`setPin`, `changePin`, `setUserActive`, `addUser`, `addCategory`, `updateCategory`, `renameCategory`) clears the cache inside the same lock, and an `onEdit` simple trigger clears it when someone edits those sheets by hand (role, active, order...).
+  - Reads take no lock and do not flush. A month read scans only the date column, then reads just the block of rows spanning that month (dates are compared as `Date`s, no per-row formatting). The lock is taken only if a legacy row without id is found in that block, and then ids are backfilled for the whole sheet once.
+  - Writes find a row through the id column and then read only that row.
+  - No per-cell reads anywhere. Data is small (thousands of rows at most).
 
 ## Frontend requirements
 
@@ -153,9 +161,14 @@ All screens are built: Login, Add, List (edit/delete), Summary, Admin (categorie
 - `public/`: `manifest.webmanifest`, `sw.js`, `icons/`. The service worker caches only the app shell, never touches cross-origin requests or non-GET requests, and is registered only in production as `sw.js?v=<build id>` so every release installs a fresh worker.
 
 **Rules the UI follows**
-- A failed write (NETWORK or SERVER_ERROR) is never retried. The user sees the "not sure it was saved" message and the affected data is refetched.
+- Every mutating call carries a fresh `requestId` (`crypto.randomUUID`). After a network error, a 30 s timeout (`TIMEOUT`) or `SERVER_ERROR` it is retried up to 3 times with the SAME `requestId` (2 s, 4 s, 8 s; a banner shows "Опитвам пак…"). Only then does the user see the "not sure it was saved" message, and the affected data is refetched. Reads retry up to 2 times, and only when there was no usable response. `login` is never retried.
 - A wrong old PIN in `changePin` is FORBIDDEN, so the user stays logged in. A successful PIN change invalidates all tokens and returns to login.
 
-**Mock mode** (dev only, no real API calls): `VITE_MOCK=1 npm run dev` in `frontend/`. Fake users: Петър (admin, PIN 123456), Добринка 1111, Ивомира 2222, Георги 3333. Add `?mockFail=network` (request not executed) or `?mockFail=lost` (executed, response lost) to the URL to test failed writes. The mock module is loaded by dynamic import behind `import.meta.env.DEV` and is not in production builds.
+**Speed and resilience**
+- One `bootstrap` request on app start (before React renders, so the stored session is validated and the first screens are filled at the same time) and right after login. Independent calls run in parallel; no sequential calls where one request would do.
+- Stale-while-revalidate (`cache.ts`, `useFetch.ts`): categories, the current month's list, the last viewed list/summary and the admin people list are kept in memory and in localStorage, scoped by user name. Screens show them at once with a subtle "обновявам…" and refresh in the background (data younger than 15 s is not refetched; categories are trusted for 5 minutes). A failed refresh keeps the old data on screen. All cached server data is cleared on logout and on `UNAUTHORIZED`. After a write the list/summary caches are marked stale, not dropped. PINs are never cached.
+- The Add screen saves instantly: Save clears the form and puts the expense in a "pending" strip (`pending.ts`, persisted in localStorage per user, so a reload does not lose it), then sends it in the background with its own `requestId`. States: sending (spinner, "Опитвам пак…" during automatic retries), saved (✓), failed ("Опитай пак" / "Изтрий"). Retrying reuses the same `requestId`, so an item is never recorded twice. After a reload items come back as failed and are not sent automatically. Retrying an item older than 25 minutes asks for confirmation first (the server only remembers a `requestId` for 30 minutes). Offline items fail at once and are sent when the connection returns. Unsent items survive logout; they are user data, not cache.
+
+**Mock mode** (dev only, no real API calls): `VITE_MOCK=1 npm run dev` in `frontend/`. Fake users: Петър (admin, PIN 123456), Добринка 1111, Ивомира 2222, Георги 3333. It implements every action including `bootstrap` and the `requestId` replay. URL options: `?mockFail=network` (writes never executed), `?mockFail=networkonce` (first attempt of each write fails), `?mockFail=lost` (executed, every response lost), `?mockFail=lostonce` (executed, response lost on the first attempt only), `?mockSlow=1` (every call takes 3-8 s). The mock module is loaded by dynamic import behind `import.meta.env.DEV` and is not in production builds.
 
 **Checks**: `npm run typecheck && npm run build` from `frontend/`.
