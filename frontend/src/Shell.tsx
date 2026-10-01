@@ -1,6 +1,7 @@
 import { useState, type ReactElement } from 'react';
 import type { Session } from './auth';
 import { Sheet } from './components';
+import { markAction } from './debug';
 import { useOnline } from './online';
 import { AddScreen } from './AddScreen';
 import { AdminScreen } from './AdminScreen';
@@ -70,7 +71,7 @@ export function Shell({ user, onLogout, onPinChanged }: {
             key={t.id}
             className={t.id === tab ? 'tab on' : 'tab'}
             aria-current={t.id === tab ? 'page' : undefined}
-            onClick={() => setTab(t.id)}
+            onClick={() => { markAction(`tab:${t.id}`); setTab(t.id); }}
           >
             <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               {ICONS[t.id]}

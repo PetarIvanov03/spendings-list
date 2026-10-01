@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { call } from './api';
 import { saveSession, type Session } from './auth';
+import { markAction } from './debug';
 import { errorText } from './messages';
 import { PinPad } from './PinPad';
 
@@ -29,6 +30,7 @@ export function Login({ onLogin, notice }: { onLogin: (s: Session) => void; noti
 
   async function submit() {
     if (!name || !canSubmit || inFlight.current) return;
+    markAction('login');
     inFlight.current = true;
     setBusy(true);
     setError('');

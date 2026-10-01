@@ -36,7 +36,7 @@ function findRowIndex(values, name) {
 // ---- Categories ----
 
 function getCategoriesSheet() {
-  return SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Categories');
+  return getSpreadsheet().getSheetByName('Categories');
 }
 
 function categoryFromRow(r) {
@@ -53,7 +53,7 @@ function addCategory(payload) {
 
   return withLock(function () {
     var sheet = getCategoriesSheet();
-    var values = sheet.getDataRange().getValues();
+    var values = readAll(sheet);
     if (findRowIndex(values, name) >= 0) throw new ApiError('CONFLICT', 'Category already exists');
 
     var order = 0;
@@ -83,7 +83,7 @@ function updateCategory(payload) {
 
   return withLock(function () {
     var sheet = getCategoriesSheet();
-    var values = sheet.getDataRange().getValues();
+    var values = readAll(sheet);
     var i = findRowIndex(values, payload.name);
     if (i < 0) throw new ApiError('NOT_FOUND', 'Category not found');
 
@@ -106,7 +106,7 @@ function renameCategory(payload) {
 
   return withLock(function () {
     var catSheet = getCategoriesSheet();
-    var values = catSheet.getDataRange().getValues();
+    var values = readAll(catSheet);
     var i = findRowIndex(values, payload.oldName);
     if (i < 0) throw new ApiError('NOT_FOUND', 'Category not found');
     if (newName === payload.oldName) return categoryFromRow(values[i]);
@@ -117,7 +117,7 @@ function renameCategory(payload) {
     if (last >= 2) {
       var range = expSheet.getRange(2, COL.CATEGORY + 1, last - 1, 1);
       var changed = false;
-      var column = range.getValues().map(function (r) {
+      var column = readValues(range).map(function (r) {
         if (String(r[0]) !== payload.oldName) return r;
         changed = true;
         return [sanitizeText(newName)];
@@ -135,7 +135,7 @@ function renameCategory(payload) {
 // ---- Users ----
 
 function adminUsers() {
-  var values = getUsersSheet().getDataRange().getValues();
+  var values = readAll(getUsersSheet());
   var list = [];
   for (var i = 1; i < values.length; i++) {
     if (values[i][0] === '') continue;
@@ -150,7 +150,7 @@ function addUser(payload) {
 
   return withLock(function () {
     var sheet = getUsersSheet();
-    if (findRowIndex(sheet.getDataRange().getValues(), name) >= 0) {
+    if (findRowIndex(readAll(sheet), name) >= 0) {
       throw new ApiError('CONFLICT', 'User already exists');
     }
     setPinForUser(name, pin);
@@ -165,7 +165,7 @@ function setUserActive(payload) {
 
   return withLock(function () {
     var sheet = getUsersSheet();
-    var values = sheet.getDataRange().getValues();
+    var values = readAll(sheet);
     var i = findRowIndex(values, payload.name);
     if (i < 0) throw new ApiError('NOT_FOUND', 'User not found');
 

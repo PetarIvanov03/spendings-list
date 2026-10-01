@@ -3,6 +3,7 @@ import { call } from './api';
 import type { Session } from './auth';
 import { getCategories } from './categories';
 import { CategoryChips, ErrorBox, Loading } from './components';
+import { markAction } from './debug';
 import { formatEur, parsePrice, todayLocal } from './format';
 import { errorText } from './messages';
 import { useOnline } from './online';
@@ -59,6 +60,7 @@ export function AddScreen({ user, active }: { user: Session['user']; active: boo
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return setError('Избери дата.');
     if (!category) return setError('Избери категория.');
 
+    markAction('add:save');
     inFlight.current = true;
     setBusy(true);
     setError('');

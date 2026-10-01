@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { ApiError, call, setUnauthorizedHandler } from './api';
 import { clearSession, loadSession, saveSession, type Session } from './auth';
 import { invalidateCategories } from './categories';
+import { markAction } from './debug';
 import { errorText } from './messages';
 import { OnlineProvider } from './online';
 import { ToastProvider } from './toast';
@@ -36,6 +37,7 @@ function Root() {
     }
     setChecking(true);
     setCheckError('');
+    markAction('start');
     call<Session['user']>('me')
       .then((user) => {
         const stored = loadSession();

@@ -13,10 +13,69 @@ function jsonOk(data) {
     .setMimeType(ContentService.MimeType.JSON);
 }
 
-function jsonError(code, message) {
-  return ContentService.createTextOutput(
-    JSON.stringify({ ok: false, error: { code: code, message: message } })
-  ).setMimeType(ContentService.MimeType.JSON);
+// ---- Per-request state and timing ----
+// Apps Script re-evaluates globals for every execution, so this is per request.
+
+var REQ = { prof: {}, stack: [], ss: null };
+
+// Runs fn and adds its own time (minus nested timed() calls) to REQ.prof[phase].
+// Phases: auth, open (opening the spreadsheet), read (sheet/cache reads), lock, handler.
+function timed(phase, fn) {
+  var start = Date.now();
+  var frame = { child: 0 };
+  REQ.stack.push(frame);
+  try {
+    return fn();
+  } finally {
+    REQ.stack.pop();
+    var elapsed = Date.now() - start;
+    REQ.prof[phase] = (REQ.prof[phase] || 0) + elapsed - frame.child;
+    if (REQ.stack.length) REQ.stack[REQ.stack.length - 1].child += elapsed;
+  }
+}
+
+// The spreadsheet is opened at most once per request.
+function getSpreadsheet() {
+  if (!REQ.ss) {
+    REQ.ss = timed('open', function () {
+      return SpreadsheetApp.getActiveSpreadsheet();
+    });
+  }
+  return REQ.ss;
+}
+
+function readValues(range) {
+  return timed('read', function () {
+    return range.getValues();
+  });
+}
+
+function readAll(sheet) {
+  return timed('read', function () {
+    return sheet.getDataRange().getValues();
+  });
+}
+
+// Builds the HTTP response. "ms" is always added; "timing" only for debug requests.
+function respond(result, startedAt, debug) {
+  var total = Date.now() - startedAt;
+  result.ms = total;
+  if (debug) {
+    var p = REQ.prof;
+    result.timing = {
+      auth: p.auth || 0,
+      open: p.open || 0,
+      read: p.read || 0,
+      lock: p.lock || 0,
+      handler: p.handler || 0,
+      total: total,
+    };
+  }
+  return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
+}
+
+function errorBody(code, message) {
+  return { ok: false, error: { code: code, message: message } };
 }
 
 // Actions that don't require a token.
@@ -99,7 +158,9 @@ var ADMIN_ACTIONS = {
 function withLock(fn) {
   var lock = LockService.getScriptLock();
   try {
-    lock.waitLock(10000);
+    timed('lock', function () {
+      lock.waitLock(10000);
+    });
   } catch (err) {
     throw new ApiError('SERVER_ERROR', 'Server busy, try again');
   }
@@ -116,44 +177,50 @@ function doGet() {
 }
 
 function doPost(e) {
+  var startedAt = Date.now();
   var body;
   try {
     body = JSON.parse(e.postData.contents);
   } catch (err) {
-    return jsonError('BAD_REQUEST', 'Invalid JSON body');
+    return respond(errorBody('BAD_REQUEST', 'Invalid JSON body'), startedAt, false);
   }
+  var debug = body.debug === true;
 
   var action = body.action;
   var handler = ACTIONS[action];
   if (!handler) {
-    return jsonError('BAD_REQUEST', 'Unknown action: ' + action);
+    return respond(errorBody('BAD_REQUEST', 'Unknown action: ' + action), startedAt, debug);
   }
 
   try {
     var user = null;
     if (!PUBLIC_ACTIONS[action]) {
-      user = ADMIN_ACTIONS[action] ? requireAdmin(body.token) : requireUser(body.token);
+      user = timed('auth', function () {
+        return ADMIN_ACTIONS[action] ? requireAdmin(body.token) : requireUser(body.token);
+      });
     }
-    var data = handler(body.payload || {}, user);
-    return jsonOk(data);
+    var data = timed('handler', function () {
+      return handler(body.payload || {}, user);
+    });
+    return respond({ ok: true, data: data }, startedAt, debug);
   } catch (err) {
     if (err instanceof ApiError) {
-      return jsonError(err.code, err.message);
+      return respond(errorBody(err.code, err.message), startedAt, debug);
     }
-    return jsonError('SERVER_ERROR', err.message || String(err));
+    return respond(errorBody('SERVER_ERROR', err.message || String(err)), startedAt, debug);
   }
 }
 
 // ---- Users sheet helpers ----
 
 function getUsersSheet() {
-  return SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Users');
+  return getSpreadsheet().getSheetByName('Users');
 }
 
 // Returns { name, active, role } or null.
 function findUser(name) {
   var sheet = getUsersSheet();
-  var values = sheet.getDataRange().getValues(); // header + rows
+  var values = readAll(sheet); // header + rows
   for (var i = 1; i < values.length; i++) {
     if (values[i][0] === name) {
       return { name: values[i][0], active: values[i][1], role: values[i][2] };
@@ -163,8 +230,7 @@ function findUser(name) {
 }
 
 function listActiveUserNames() {
-  var sheet = getUsersSheet();
-  var values = sheet.getDataRange().getValues();
+  var values = readAll(getUsersSheet());
   var names = [];
   for (var i = 1; i < values.length; i++) {
     if (values[i][1] === true) {

@@ -54,8 +54,7 @@ function sanitizeText(text) {
 
 // Returns [{ name, color, active, order }] in sheet order.
 function readCategories() {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Categories');
-  var values = sheet.getDataRange().getValues();
+  var values = readAll(getSpreadsheet().getSheetByName('Categories'));
   var list = [];
   for (var i = 1; i < values.length; i++) {
     if (values[i][0] === '') continue;
@@ -90,14 +89,14 @@ function validateCategory(value, current) {
 // ---- Expenses sheet access ----
 
 function getExpensesSheet() {
-  return SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Expenses');
+  return getSpreadsheet().getSheetByName('Expenses');
 }
 
 // Data rows only (row 2 onwards), one getValues() call.
 function readExpenseValues(sheet) {
   var last = sheet.getLastRow();
   if (last < 2) return [];
-  return sheet.getRange(2, 1, last - 1, EXPENSE_COLUMNS).getValues();
+  return readValues(sheet.getRange(2, 1, last - 1, EXPENSE_COLUMNS));
 }
 
 function isBlankRow(row) {

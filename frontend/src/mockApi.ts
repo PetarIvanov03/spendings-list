@@ -367,12 +367,24 @@ function handle(action: string, p: Payload, token: string | undefined): unknown 
   return fail('BAD_REQUEST', `Unknown action: ${action}`);
 }
 
+// Same extra fields as the real server: ms always, timing only for debug requests.
+function withTiming(result: Envelope, debug?: boolean): Envelope {
+  result.ms = 3;
+  if (debug) result.timing = { auth: 1, open: 0, read: 1, lock: 0, handler: 1, total: 3 };
+  return result;
+}
+
 const MUTATING = new Set([
   'addExpense', 'updateExpense', 'deleteExpense', 'changePin', 'addCategory', 'updateCategory',
   'renameCategory', 'addUser', 'setUserActive', 'setPin',
 ]);
 
-export async function mockSend(action: string, payload: object | undefined, token: string | undefined): Promise<Envelope> {
+export async function mockSend(
+  action: string,
+  payload: object | undefined,
+  token: string | undefined,
+  debug?: boolean,
+): Promise<Envelope> {
   await new Promise((r) => setTimeout(r, 250));
   const mode = new URLSearchParams(location.search).get('mockFail');
   const mutating = MUTATING.has(action);
@@ -380,9 +392,9 @@ export async function mockSend(action: string, payload: object | undefined, toke
   try {
     const data = handle(action, (payload ?? {}) as Payload, token);
     if (mutating && mode === 'lost') throw new ApiError('NETWORK', 'mock: executed, response lost');
-    return { ok: true, data: JSON.parse(JSON.stringify(data ?? null)) };
+    return withTiming({ ok: true, data: JSON.parse(JSON.stringify(data ?? null)) }, debug);
   } catch (e) {
-    if (e instanceof ApiError && e.code !== 'NETWORK') return { ok: false, error: { code: e.code, message: e.message } };
+    if (e instanceof ApiError && e.code !== 'NETWORK') return withTiming({ ok: false, error: { code: e.code, message: e.message } }, debug);
     throw e;
   }
 }
