@@ -8,9 +8,7 @@ function round2(n) {
 }
 
 function monthExpenses(month) {
-  return loadExpenseEntries()
-    .map(function (e) { return e.expense; })
-    .filter(function (x) { return x.date.substring(0, 7) === month; });
+  return loadMonthEntries(month).map(function (e) { return e.expense; });
 }
 
 // Groups expenses by key(expense) and sums in cents to avoid float drift.

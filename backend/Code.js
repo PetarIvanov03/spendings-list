@@ -16,10 +16,10 @@ function jsonOk(data) {
 // ---- Per-request state and timing ----
 // Apps Script re-evaluates globals for every execution, so this is per request.
 
-var REQ = { prof: {}, stack: [], ss: null };
+var REQ = { prof: {}, stack: [], ss: null, props: null, lockHeld: false };
 
 // Runs fn and adds its own time (minus nested timed() calls) to REQ.prof[phase].
-// Phases: auth, open (opening the spreadsheet), read (sheet/cache reads), lock, handler.
+// Phases: auth, open (opening the spreadsheet), read (sheet/cache/property reads), lock, handler.
 function timed(phase, fn) {
   var start = Date.now();
   var frame = { child: 0 };
@@ -34,7 +34,7 @@ function timed(phase, fn) {
   }
 }
 
-// The spreadsheet is opened at most once per request.
+// The spreadsheet is opened lazily and at most once per request.
 function getSpreadsheet() {
   if (!REQ.ss) {
     REQ.ss = timed('open', function () {
@@ -55,6 +55,67 @@ function readAll(sheet) {
     return sheet.getDataRange().getValues();
   });
 }
+
+// ---- Script Properties: read once per request ----
+
+function getProps() {
+  if (!REQ.props) {
+    REQ.props = timed('read', function () {
+      return PropertiesService.getScriptProperties().getProperties();
+    });
+  }
+  return REQ.props;
+}
+
+function getProp(key) {
+  var value = getProps()[key];
+  return value === undefined ? null : value;
+}
+
+function setProp(key, value) {
+  PropertiesService.getScriptProperties().setProperty(key, value);
+  getProps()[key] = value;
+}
+
+// ---- Users / Categories rows: script cache (10 min) ----
+// Cleared explicitly by every API write that changes these sheets (invalidateSheetCaches,
+// called inside the write's lock) and by onEdit when someone edits them by hand.
+
+var SHEET_CACHE_TTL_SECONDS = 600;
+var CACHED_SHEETS = ['Users', 'Categories'];
+
+function cachedSheetValues(name) {
+  var cache = CacheService.getScriptCache();
+  var key = 'sheet:' + name;
+  var hit = timed('read', function () {
+    return cache.get(key);
+  });
+  if (hit) return JSON.parse(hit);
+
+  var values = readAll(getSpreadsheet().getSheetByName(name));
+  try {
+    cache.put(key, JSON.stringify(values), SHEET_CACHE_TTL_SECONDS);
+  } catch (err) {
+    // Too big for the cache: just read the sheet next time.
+  }
+  return values;
+}
+
+function invalidateSheetCaches() {
+  CacheService.getScriptCache().removeAll(
+    CACHED_SHEETS.map(function (name) {
+      return 'sheet:' + name;
+    })
+  );
+}
+
+// Simple trigger: a manual edit of Users or Categories (role, active, order...) takes effect at once.
+function onEdit(e) {
+  if (!e || !e.range) return;
+  if (CACHED_SHEETS.indexOf(e.range.getSheet().getName()) >= 0) invalidateSheetCaches();
+}
+
+// ---- Responses ----
 
 // Builds the HTTP response. "ms" is always added; "timing" only for debug requests.
 function respond(result, startedAt, debug) {
@@ -90,6 +151,9 @@ var ACTIONS = {
   },
   me: function (payload, user) {
     return { name: user.name, role: user.role };
+  },
+  bootstrap: function (payload, user) {
+    return bootstrap(payload, user);
   },
   categories: function () {
     return categories();
@@ -154,8 +218,25 @@ var ADMIN_ACTIONS = {
   setPin: true,
 };
 
-// Runs fn under the script lock (all sheet writes go through this).
+// Actions that change data. They run under the script lock and support requestId.
+var MUTATING_ACTIONS = {
+  addExpense: true,
+  updateExpense: true,
+  deleteExpense: true,
+  changePin: true,
+  addCategory: true,
+  updateCategory: true,
+  renameCategory: true,
+  addUser: true,
+  setUserActive: true,
+  setPin: true,
+};
+
+// Runs fn under the script lock (all sheet writes go through this). Re-entrant within one
+// request: doPost already holds the lock for mutating actions, so the handlers' own
+// withLock calls just run fn.
 function withLock(fn) {
+  if (REQ.lockHeld) return fn();
   var lock = LockService.getScriptLock();
   try {
     timed('lock', function () {
@@ -164,12 +245,60 @@ function withLock(fn) {
   } catch (err) {
     throw new ApiError('SERVER_ERROR', 'Server busy, try again');
   }
+  REQ.lockHeld = true;
   try {
     return fn();
   } finally {
+    REQ.lockHeld = false;
     SpreadsheetApp.flush();
     lock.releaseLock();
   }
+}
+
+// ---- Idempotency (requestId) ----
+// A client that did not get a response may send the same mutating request again with the
+// same requestId. The first successful response is kept for 30 minutes per user + requestId
+// and replayed instead of executing the action twice.
+
+var REQUEST_ID_PATTERN = /^[A-Za-z0-9_-]{8,64}$/;
+var IDEMPOTENCY_TTL_SECONDS = 30 * 60;
+var IDEMPOTENCY_MAX_CHARS = 90000; // CacheService values are limited to 100 KB
+
+function readRequestId(body) {
+  if (body.requestId === undefined || body.requestId === null) return null;
+  if (typeof body.requestId !== 'string' || !REQUEST_ID_PATTERN.test(body.requestId)) {
+    throw new ApiError('BAD_REQUEST', 'requestId must be 8-64 characters: A-Z a-z 0-9 _ -');
+  }
+  return body.requestId;
+}
+
+// Executes a mutating handler under the lock. With a requestId, the stored response is
+// looked up and saved inside the same lock, so two identical requests cannot both run.
+// Returns { replay: <stored response object> } or { data: <handler result> }.
+function runMutation(handler, payload, user, requestId) {
+  var replay = null;
+  var data = withLock(function () {
+    var cache = CacheService.getScriptCache();
+    var key = requestId ? 'req:' + user.name + ':' + requestId : null;
+    if (key) {
+      var stored = timed('read', function () {
+        return cache.get(key);
+      });
+      if (stored) {
+        replay = JSON.parse(stored);
+        return null;
+      }
+    }
+    var result = timed('handler', function () {
+      return handler(payload, user);
+    });
+    if (key) {
+      var json = JSON.stringify({ ok: true, data: result });
+      if (json.length <= IDEMPOTENCY_MAX_CHARS) cache.put(key, json, IDEMPOTENCY_TTL_SECONDS);
+    }
+    return result;
+  });
+  return replay ? { replay: replay } : { data: data };
 }
 
 function doGet() {
@@ -193,14 +322,21 @@ function doPost(e) {
   }
 
   try {
+    var requestId = readRequestId(body);
     var user = null;
     if (!PUBLIC_ACTIONS[action]) {
       user = timed('auth', function () {
         return ADMIN_ACTIONS[action] ? requireAdmin(body.token) : requireUser(body.token);
       });
     }
+    var payload = body.payload || {};
+
+    if (MUTATING_ACTIONS[action]) {
+      var outcome = runMutation(handler, payload, user, requestId);
+      return respond(outcome.replay || { ok: true, data: outcome.data }, startedAt, debug);
+    }
     var data = timed('handler', function () {
-      return handler(body.payload || {}, user);
+      return handler(payload, user);
     });
     return respond({ ok: true, data: data }, startedAt, debug);
   } catch (err) {
@@ -213,14 +349,14 @@ function doPost(e) {
 
 // ---- Users sheet helpers ----
 
+// For writes (fresh read of this sheet). Reads go through cachedSheetValues('Users').
 function getUsersSheet() {
   return getSpreadsheet().getSheetByName('Users');
 }
 
 // Returns { name, active, role } or null.
 function findUser(name) {
-  var sheet = getUsersSheet();
-  var values = readAll(sheet); // header + rows
+  var values = cachedSheetValues('Users'); // header + rows
   for (var i = 1; i < values.length; i++) {
     if (values[i][0] === name) {
       return { name: values[i][0], active: values[i][1], role: values[i][2] };
@@ -230,7 +366,7 @@ function findUser(name) {
 }
 
 function listActiveUserNames() {
-  var values = readAll(getUsersSheet());
+  var values = cachedSheetValues('Users');
   var names = [];
   for (var i = 1; i < values.length; i++) {
     if (values[i][1] === true) {
@@ -254,8 +390,7 @@ function requireUser(token) {
   var payloadB64 = parts[0];
   var signature = parts[1];
 
-  var secret = PropertiesService.getScriptProperties().getProperty('TOKEN_SECRET');
-  var expectedSignature = hmacHex(payloadB64, secret);
+  var expectedSignature = hmacHex(payloadB64, getProp('TOKEN_SECRET'));
   if (expectedSignature !== signature) {
     throw new ApiError('UNAUTHORIZED', 'Invalid token');
   }
@@ -276,9 +411,7 @@ function requireUser(token) {
     throw new ApiError('UNAUTHORIZED', 'Invalid token');
   }
 
-  var currentVersion = Number(
-    PropertiesService.getScriptProperties().getProperty('tv:' + user.name) || '0'
-  );
+  var currentVersion = Number(getProp('tv:' + user.name) || '0');
   if (payload.v !== currentVersion) {
     throw new ApiError('UNAUTHORIZED', 'Invalid token');
   }

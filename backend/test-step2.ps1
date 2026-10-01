@@ -13,8 +13,14 @@ param(
 $API_URL = $env:API_URL
 if (-not $API_URL) { throw 'Set $env:API_URL first' }
 
+# Mutating actions get a fresh requestId (the server replays a repeated one instead of running it twice).
+$mutatingActions = @('addExpense', 'updateExpense', 'deleteExpense', 'changePin', 'addCategory',
+  'updateCategory', 'renameCategory', 'addUser', 'setUserActive', 'setPin')
+
 function Api($action, $payload = @{}, $token = $null) {
-  $body = @{ action = $action; token = $token; payload = $payload } | ConvertTo-Json -Depth 5 -Compress
+  $request = @{ action = $action; token = $token; payload = $payload }
+  if ($mutatingActions -contains $action) { $request.requestId = [guid]::NewGuid().ToString('N') }
+  $body = $request | ConvertTo-Json -Depth 5 -Compress
   Invoke-RestMethod -Uri $API_URL -Method Post -ContentType 'text/plain;charset=utf-8' `
     -Body ([Text.Encoding]::UTF8.GetBytes($body))
 }

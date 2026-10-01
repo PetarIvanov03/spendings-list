@@ -54,7 +54,7 @@ function sanitizeText(text) {
 
 // Returns [{ name, color, active, order }] in sheet order.
 function readCategories() {
-  var values = readAll(getSpreadsheet().getSheetByName('Categories'));
+  var values = cachedSheetValues('Categories');
   var list = [];
   for (var i = 1; i < values.length; i++) {
     if (values[i][0] === '') continue;
@@ -92,11 +92,19 @@ function getExpensesSheet() {
   return getSpreadsheet().getSheetByName('Expenses');
 }
 
-// Data rows only (row 2 onwards), one getValues() call.
+// All data rows (row 2 onwards), one getValues() call. Used by the id backfill and the
+// list without a month; month reads and writes use the narrower reads below.
 function readExpenseValues(sheet) {
   var last = sheet.getLastRow();
   if (last < 2) return [];
   return readValues(sheet.getRange(2, 1, last - 1, EXPENSE_COLUMNS));
+}
+
+// Id column only (as strings, '' for blank): cheap lookup for writes.
+function readIdColumn(sheet) {
+  var last = sheet.getLastRow();
+  if (last < 2) return [];
+  return readValues(sheet.getRange(2, 1, last - 1, 1)).map(function (r) { return String(r[0]); });
 }
 
 function isBlankRow(row) {
@@ -143,8 +151,66 @@ function toExpense(r) {
   };
 }
 
-// Read path: returns [{ row, expense }]. Backfills legacy ids under the lock if needed.
-function loadExpenseEntries() {
+function entriesFromValues(values) {
+  var entries = [];
+  values.forEach(function (r, i) {
+    if (!isBlankRow(r)) entries.push({ row: i + 2, expense: toExpense(r) });
+  });
+  return entries;
+}
+
+// Month filter on the raw cell. Date cells are compared as dates (no per-row formatting,
+// which is slow); legacy text dates fall back to the yyyy-MM-dd prefix.
+function monthBounds(month) {
+  var y = Number(month.substring(0, 4));
+  var m = Number(month.substring(5, 7));
+  return { prefix: month, start: new Date(y, m - 1, 1), end: new Date(y, m, 1) };
+}
+
+function inMonth(dateCell, bounds) {
+  if (dateCell instanceof Date) return dateCell >= bounds.start && dateCell < bounds.end;
+  return String(dateCell).substring(0, 7) === bounds.prefix;
+}
+
+// Read path for one month: scans only the date column, then reads just the block of rows
+// that spans the month. Returns [{ row, expense }]. A blank id (legacy row) in that block is
+// the only reason to take the lock, and only once: ids are backfilled for the whole sheet.
+function loadMonthEntries(month) {
+  var sheet = getExpensesSheet();
+  var last = sheet.getLastRow();
+  if (last < 2) return [];
+  var n = last - 1;
+  var dates = readValues(sheet.getRange(2, COL.DATE + 1, n, 1));
+
+  var bounds = monthBounds(month);
+  var first = -1;
+  var lastMatch = -1;
+  for (var i = 0; i < n; i++) {
+    if (inMonth(dates[i][0], bounds)) {
+      if (first < 0) first = i;
+      lastMatch = i;
+    }
+  }
+  if (first < 0) return [];
+
+  var blockRange = sheet.getRange(2 + first, 1, lastMatch - first + 1, EXPENSE_COLUMNS);
+  var block = readValues(blockRange);
+  if (needsIds(block)) {
+    withLock(function () {
+      backfillIds(sheet, readExpenseValues(sheet));
+    });
+    block = readValues(blockRange);
+  }
+
+  var entries = [];
+  block.forEach(function (r, j) {
+    if (inMonth(r[COL.DATE], bounds)) entries.push({ row: 2 + first + j, expense: toExpense(r) });
+  });
+  return entries;
+}
+
+// Read path without a month: every row. Backfills legacy ids under the lock if needed.
+function loadAllEntries() {
   var sheet = getExpensesSheet();
   var values = readExpenseValues(sheet);
   if (needsIds(values)) {
@@ -156,25 +222,20 @@ function loadExpenseEntries() {
   return entriesFromValues(values);
 }
 
-function entriesFromValues(values) {
-  var entries = [];
-  values.forEach(function (r, i) {
-    if (!isBlankRow(r)) entries.push({ row: i + 2, expense: toExpense(r) });
-  });
-  return entries;
-}
-
 function canTouch(user, expense) {
   return user.role === 'admin' || expense.user === user.name;
 }
 
-// Write path: finds the entry by id and enforces ownership. Caller holds the lock.
-function findOwnedEntry(user, values, id) {
+// Write path: finds one row by id (id column, then that single row) and enforces
+// ownership. Caller holds the lock.
+function findOwnedEntry(user, sheet, id) {
   if (typeof id !== 'string' || !id) throw new ApiError('BAD_REQUEST', 'id is required');
-  var entry = entriesFromValues(values).filter(function (e) { return e.expense.id === id; })[0];
-  if (!entry) throw new ApiError('NOT_FOUND', 'Expense not found');
-  if (!canTouch(user, entry.expense)) throw new ApiError('FORBIDDEN', 'Not your expense');
-  return entry;
+  var index = readIdColumn(sheet).indexOf(id);
+  if (index < 0) throw new ApiError('NOT_FOUND', 'Expense not found');
+  var row = index + 2;
+  var expense = toExpense(readValues(sheet.getRange(row, 1, 1, EXPENSE_COLUMNS))[0]);
+  if (!canTouch(user, expense)) throw new ApiError('FORBIDDEN', 'Not your expense');
+  return { row: row, expense: expense };
 }
 
 // ---- Endpoints ----
@@ -187,15 +248,15 @@ function addExpense(payload, user) {
 
   return withLock(function () {
     var sheet = getExpensesSheet();
-    var values = readExpenseValues(sheet);
-    backfillIds(sheet, values);
-
+    var ids = readIdColumn(sheet);
     var used = {};
-    values.forEach(function (r) { used[String(r[COL.ID])] = true; });
+    ids.forEach(function (id) {
+      if (id) used[id] = true;
+    });
     var id = newId(used);
     var createdAt = new Date();
 
-    var row = sheet.getLastRow() + 1;
+    var row = ids.length + 2; // first empty row after the last data row
     sheet.getRange(row, 1).setNumberFormat('@');
     sheet.getRange(row, 1, 1, EXPENSE_COLUMNS).setValues([
       [id, date, sanitizeText(item), price, category, user.name, createdAt],
@@ -225,11 +286,8 @@ function listExpenses(payload, user) {
   // Members are always restricted to their own rows; the user filter is admin-only.
   var onlyUser = user.role === 'admin' ? payload.user : user.name;
 
-  var entries = loadExpenseEntries().filter(function (e) {
-    var x = e.expense;
-    if (onlyUser && x.user !== onlyUser) return false;
-    if (month && x.date.substring(0, 7) !== month) return false;
-    return true;
+  var entries = (month ? loadMonthEntries(month) : loadAllEntries()).filter(function (e) {
+    return !onlyUser || e.expense.user === onlyUser;
   });
 
   // Newest first: date, then createdAt, then sheet position.
@@ -243,6 +301,16 @@ function listExpenses(payload, user) {
   return limit ? list.slice(0, limit) : list;
 }
 
+// Everything the app needs on start, in one request: same auth and ownership rules as
+// the separate actions. payload.month (optional) is passed to listExpenses.
+function bootstrap(payload, user) {
+  return {
+    me: { name: user.name, role: user.role },
+    categories: categories(),
+    expenses: listExpenses(payload.month === undefined ? {} : { month: payload.month }, user),
+  };
+}
+
 function updateExpense(payload, user) {
   var has = function (k) { return payload[k] !== undefined; };
   if (!has('date') && !has('item') && !has('price') && !has('category')) {
@@ -254,9 +322,7 @@ function updateExpense(payload, user) {
 
   return withLock(function () {
     var sheet = getExpensesSheet();
-    var values = readExpenseValues(sheet);
-    backfillIds(sheet, values);
-    var entry = findOwnedEntry(user, values, payload.id);
+    var entry = findOwnedEntry(user, sheet, payload.id);
     var expense = entry.expense;
 
     var category = has('category') ? validateCategory(payload.category, expense.category) : null;
@@ -285,9 +351,7 @@ function updateExpense(payload, user) {
 function deleteExpense(payload, user) {
   return withLock(function () {
     var sheet = getExpensesSheet();
-    var values = readExpenseValues(sheet);
-    backfillIds(sheet, values);
-    var entry = findOwnedEntry(user, values, payload.id);
+    var entry = findOwnedEntry(user, sheet, payload.id);
     sheet.deleteRow(entry.row);
     return { id: entry.expense.id };
   });

@@ -52,18 +52,16 @@ function promptSetPin() {
 
 // Shared by the menu and the setPin admin endpoint (added in a later step).
 function setPinForUser(userName, pin) {
-  var props = PropertiesService.getScriptProperties();
-  var salt = props.getProperty('PIN_SALT');
+  var salt = getProp('PIN_SALT');
   if (!salt) {
     throw new Error('PIN_SALT not set, run initSecrets first');
   }
-  props.setProperty('pin:' + userName, hashPin(pin, salt));
+  setProp('pin:' + userName, hashPin(pin, salt));
   bumpTokenVersion(userName);
 }
 
 // Invalidates every existing token of this user.
 function bumpTokenVersion(userName) {
-  var props = PropertiesService.getScriptProperties();
-  var currentVersion = Number(props.getProperty('tv:' + userName) || '0');
-  props.setProperty('tv:' + userName, String(currentVersion + 1));
+  var currentVersion = Number(getProp('tv:' + userName) || '0');
+  setProp('tv:' + userName, String(currentVersion + 1));
 }

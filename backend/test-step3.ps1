@@ -27,8 +27,14 @@ catch { Write-Host "warm-up GET failed: $($_.Exception.Message)" -ForegroundColo
 $retryable = @('loginOptions', 'login', 'me', 'categories', 'listExpenses', 'summary',
   'adminSummary', 'adminCategories', 'adminUsers')
 
+# Mutating actions get a fresh requestId (the server replays a repeated one instead of running it twice).
+$mutatingActions = @('addExpense', 'updateExpense', 'deleteExpense', 'changePin', 'addCategory',
+  'updateCategory', 'renameCategory', 'addUser', 'setUserActive', 'setPin')
+
 function Api($action, $payload = @{}, $token = $null) {
-  $body = @{ action = $action; token = $token; payload = $payload } | ConvertTo-Json -Depth 5 -Compress
+  $request = @{ action = $action; token = $token; payload = $payload }
+  if ($mutatingActions -contains $action) { $request.requestId = [guid]::NewGuid().ToString('N') }
+  $body = $request | ConvertTo-Json -Depth 5 -Compress
   $attempts = if ($retryable -contains $action) { 3 } else { 1 }
   for ($i = 1; $i -le $attempts; $i++) {
     try {

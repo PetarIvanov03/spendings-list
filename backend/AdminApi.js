@@ -63,6 +63,7 @@ function addCategory(payload) {
     order += 1;
 
     sheet.getRange(sheet.getLastRow() + 1, 1, 1, 4).setValues([[sanitizeText(name), color, true, order]]);
+    invalidateSheetCaches();
     return { name: name, color: color, active: true, order: order };
   });
 }
@@ -90,6 +91,7 @@ function updateCategory(payload) {
     if (color !== null) sheet.getRange(i + 1, 2).setValue(color);
     if (has('active')) sheet.getRange(i + 1, 3).setValue(payload.active);
     if (has('order')) sheet.getRange(i + 1, 4).setValue(payload.order);
+    invalidateSheetCaches();
 
     var row = values[i].slice();
     if (color !== null) row[1] = color;
@@ -125,6 +127,7 @@ function renameCategory(payload) {
       if (changed) range.setValues(column);
     }
     catSheet.getRange(i + 1, 1).setValue(sanitizeText(newName));
+    invalidateSheetCaches();
 
     var row = values[i].slice();
     row[0] = newName;
@@ -135,7 +138,7 @@ function renameCategory(payload) {
 // ---- Users ----
 
 function adminUsers() {
-  var values = readAll(getUsersSheet());
+  var values = cachedSheetValues('Users');
   var list = [];
   for (var i = 1; i < values.length; i++) {
     if (values[i][0] === '') continue;
@@ -155,6 +158,7 @@ function addUser(payload) {
     }
     setPinForUser(name, pin);
     sheet.getRange(sheet.getLastRow() + 1, 1, 1, 3).setValues([[sanitizeText(name), true, 'member']]);
+    invalidateSheetCaches();
     return { name: name, role: 'member', active: true };
   });
 }
@@ -183,6 +187,7 @@ function setUserActive(payload) {
 
     sheet.getRange(i + 1, 2).setValue(payload.active);
     if (!payload.active) bumpTokenVersion(payload.name); // kills existing sessions
+    invalidateSheetCaches();
     return { name: payload.name, role: role, active: payload.active };
   });
 }
@@ -195,6 +200,7 @@ function setPin(payload) {
     if (!target) throw new ApiError('NOT_FOUND', 'User not found');
     setPinForUser(target.name, validatePin(payload.pin, target.role));
     clearFailedAttempts(target.name); // also unlocks the user
+    invalidateSheetCaches();
     return {};
   });
 }
