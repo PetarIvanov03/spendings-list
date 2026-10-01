@@ -47,6 +47,52 @@ var ACTIONS = {
   deleteExpense: function (payload, user) {
     return deleteExpense(payload, user);
   },
+  summary: function (payload, user) {
+    return summary(payload, user);
+  },
+  changePin: function (payload, user) {
+    return changePin(payload, user);
+  },
+  adminSummary: function (payload) {
+    return adminSummary(payload);
+  },
+  adminCategories: function () {
+    return adminCategories();
+  },
+  addCategory: function (payload) {
+    return addCategory(payload);
+  },
+  updateCategory: function (payload) {
+    return updateCategory(payload);
+  },
+  renameCategory: function (payload) {
+    return renameCategory(payload);
+  },
+  adminUsers: function () {
+    return adminUsers();
+  },
+  addUser: function (payload) {
+    return addUser(payload);
+  },
+  setUserActive: function (payload) {
+    return setUserActive(payload);
+  },
+  setPin: function (payload) {
+    return setPin(payload);
+  },
+};
+
+// Actions that require the admin role (checked server-side via requireAdmin).
+var ADMIN_ACTIONS = {
+  adminSummary: true,
+  adminCategories: true,
+  addCategory: true,
+  updateCategory: true,
+  renameCategory: true,
+  adminUsers: true,
+  addUser: true,
+  setUserActive: true,
+  setPin: true,
 };
 
 // Runs fn under the script lock (all sheet writes go through this).
@@ -86,7 +132,7 @@ function doPost(e) {
   try {
     var user = null;
     if (!PUBLIC_ACTIONS[action]) {
-      user = requireUser(body.token);
+      user = ADMIN_ACTIONS[action] ? requireAdmin(body.token) : requireUser(body.token);
     }
     var data = handler(body.payload || {}, user);
     return jsonOk(data);

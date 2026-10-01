@@ -63,3 +63,28 @@ function login(payload) {
 
   return { token: token, expiresAt: exp, user: { name: user.name, role: user.role } };
 }
+
+// Wrong oldPin is FORBIDDEN, not UNAUTHORIZED: the frontend logs out on UNAUTHORIZED.
+// Success bumps tokenVersion, so the caller must log in again.
+function changePin(payload, user) {
+  var newPin = validatePin(payload.newPin, user.role);
+  if (typeof payload.oldPin !== 'string' || !payload.oldPin) {
+    throw new ApiError('BAD_REQUEST', 'oldPin is required');
+  }
+  if (isLockedOut(user.name)) {
+    throw new ApiError('LOCKED', 'Too many attempts, try again later');
+  }
+
+  var props = PropertiesService.getScriptProperties();
+  var storedHash = props.getProperty('pin:' + user.name);
+  if (!storedHash || hashPin(payload.oldPin, props.getProperty('PIN_SALT')) !== storedHash) {
+    recordFailedAttempt(user.name);
+    throw new ApiError('FORBIDDEN', 'Wrong PIN');
+  }
+
+  clearFailedAttempts(user.name);
+  withLock(function () {
+    setPinForUser(user.name, newPin);
+  });
+  return {};
+}

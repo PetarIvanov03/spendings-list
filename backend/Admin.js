@@ -58,6 +58,12 @@ function setPinForUser(userName, pin) {
     throw new Error('PIN_SALT not set, run initSecrets first');
   }
   props.setProperty('pin:' + userName, hashPin(pin, salt));
+  bumpTokenVersion(userName);
+}
+
+// Invalidates every existing token of this user.
+function bumpTokenVersion(userName) {
+  var props = PropertiesService.getScriptProperties();
   var currentVersion = Number(props.getProperty('tv:' + userName) || '0');
   props.setProperty('tv:' + userName, String(currentVersion + 1));
 }
