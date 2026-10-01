@@ -141,6 +141,7 @@ Do these in order, stopping after each so the owner can verify:
 6. PWA polish, then migrate nothing else: old rows already live in the Sheet.
 
 Rules for Claude Code: keep the code small and readable, no speculative features, no extra dependencies without asking, and ask before changing the Sheet schema or this API contract.
+
 ## Frontend status
 
 All screens are built: Login, Add, List (edit/delete), Summary, Admin (categories and people), own-PIN change, PWA. The API contract is unchanged. Admin UI is hidden from members as a convenience only.
