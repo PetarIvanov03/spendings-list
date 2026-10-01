@@ -6,6 +6,9 @@
 //   ?mockFail=lost        mutating requests ARE executed but every response is lost
 //   ?mockFail=lostonce    executed, response lost on the first attempt only; the retry with
 //                         the same requestId gets the stored response (like the real server)
+//   ?mockFail=crossed     every other response (1st, 3rd...) is the PREVIOUS call's response
+//                         (or the old "pong" for the very first call): a crossed response.
+//                         Writes are executed, like a real response that went to the wrong request.
 //   ?mockSlow=1           every call takes 3-8 seconds
 import { ApiError, type Envelope, type ErrorCode } from './api';
 
@@ -396,6 +399,9 @@ const MUTATING = new Set([
 // Stored responses by user + requestId, like the real server's 30 minute replay cache.
 const replays = new Map<string, { at: number; data: unknown }>();
 const attempts = new Map<string, number>();
+let callCounter = 0;
+let previousEnvelope: Envelope | undefined; // what a crossed response delivers
+const PONG: Envelope = { ok: true, data: 'pong' }; // the old doGet answer: no echo at all
 const REQUEST_ID = /^[A-Za-z0-9_-]{8,64}$/;
 
 export async function mockSend(
@@ -406,6 +412,7 @@ export async function mockSend(
   requestId?: string,
 ): Promise<Envelope> {
   const params = new URLSearchParams(location.search);
+  const callNo = ++callCounter;
   await new Promise((r) => setTimeout(r, params.get('mockSlow') === '1' ? 3000 + Math.random() * 5000 : 250));
   const mode = params.get('mockFail');
   const mutating = MUTATING.has(action);
@@ -436,9 +443,21 @@ export async function mockSend(
     if (mutating && (mode === 'lost' || (mode === 'lostonce' && attemptNo === 1))) {
       throw new ApiError('NETWORK', 'mock: executed, response lost');
     }
-    return withTiming({ ok: true, data: JSON.parse(JSON.stringify(data ?? null)) }, debug);
+    return deliver(withTiming({ ok: true, data: JSON.parse(JSON.stringify(data ?? null)) }, debug), action, requestId, mode, callNo);
   } catch (e) {
-    if (e instanceof ApiError && e.code !== 'NETWORK') return withTiming({ ok: false, error: { code: e.code, message: e.message } }, debug);
+    if (e instanceof ApiError && e.code !== 'NETWORK') {
+      return deliver(withTiming({ ok: false, error: { code: e.code, message: e.message } }, debug), action, requestId, mode, callNo);
+    }
     throw e;
   }
+}
+
+// Adds the echo the real server adds, and in crossed mode swaps in somebody else's response.
+function deliver(envelope: Envelope, action: string, requestId: string | undefined, mode: string | null, callNo: number): Envelope {
+  envelope.action = action;
+  if (requestId !== undefined) envelope.requestId = requestId;
+  const crossed = mode === 'crossed' && callNo % 2 === 1;
+  const out = crossed ? (previousEnvelope ?? PONG) : envelope;
+  previousEnvelope = envelope;
+  return JSON.parse(JSON.stringify(out));
 }

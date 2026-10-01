@@ -26,6 +26,8 @@ export class ApiError extends Error {
 export type Envelope = ({ ok: true; data: unknown } | { ok: false; error: { code?: ErrorCode; message?: string } }) & {
   ms?: number; // server execution time
   timing?: Timing; // only when the request had debug: true
+  action?: string; // echo of the request's action
+  requestId?: string; // echo of the request's requestId
 };
 
 const TIMEOUT_MS = 30_000;
@@ -68,7 +70,7 @@ export function useRetrying(): boolean {
   );
 }
 
-async function transport(action: string, payload: object | undefined, requestId: string | undefined): Promise<Envelope> {
+async function transport(action: string, payload: object | undefined, requestId: string): Promise<Envelope> {
   const token = loadSession()?.token;
   const debug = debugEnabled() || undefined; // sent only when diagnostics are on
 
@@ -101,8 +103,10 @@ async function transport(action: string, payload: object | undefined, requestId:
   }
 }
 
-// One attempt.
-async function attempt<T>(action: string, payload: object | undefined, requestId: string | undefined): Promise<T> {
+// One attempt. The server echoes the action and the requestId; a response that does not
+// match this request (or has no echo, like the old "pong") is NOT ours: we must never use
+// it, so it counts as a transport failure and the normal retry rules apply.
+async function attempt<T>(action: string, payload: object | undefined, requestId: string): Promise<T> {
   const started = performance.now();
   let res: Envelope;
   try {
@@ -112,14 +116,16 @@ async function attempt<T>(action: string, payload: object | undefined, requestId
     throw e;
   }
   const total = Math.round(performance.now() - started);
+  const matches = res.action === action && res.requestId === requestId;
   recordCall({
     action,
     total,
     server: res.ms,
     network: res.ms === undefined ? undefined : total - res.ms,
     timing: res.timing,
-    result: res.ok ? 'ok' : (res.error?.code ?? 'SERVER_ERROR'),
+    result: !matches ? 'MISMATCH' : res.ok ? 'ok' : (res.error?.code ?? 'SERVER_ERROR'),
   });
+  if (!matches) throw new ApiError('NETWORK', 'Response does not belong to this request');
   if (res.ok) return res.data as T;
 
   const err = new ApiError(res.error?.code ?? 'SERVER_ERROR', res.error?.message ?? '');
@@ -138,14 +144,16 @@ export interface CallOptions {
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // The one function that talks to the backend.
-// - Mutating actions get a requestId and are retried up to 3 times with the SAME id after a
+// - Mutating actions are retried up to 3 times with the SAME id after a
 //   network error, timeout or SERVER_ERROR (2 s, 4 s, 8 s). The server replays the stored
 //   response if the first attempt had actually been executed.
 // - Reads retry up to 2 times, only when there was no usable response.
 // - login is never retried automatically.
 export async function call<T>(action: string, payload?: object, options: CallOptions = {}): Promise<T> {
   const mutating = MUTATING.has(action);
-  const requestId = mutating ? (options.requestId ?? newRequestId()) : undefined;
+  // Every request carries a requestId: for writes it makes retries safe (the server replays
+  // the stored response); for all requests it lets us check that the response is ours.
+  const requestId = options.requestId ?? newRequestId();
   const delays = mutating ? WRITE_RETRY_DELAYS : action === 'login' ? [] : READ_RETRY_DELAYS;
 
   let marked = false;
