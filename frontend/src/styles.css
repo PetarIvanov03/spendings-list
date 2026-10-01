@@ -838,3 +838,74 @@ button.danger {
     animation-duration: 3s;
   }
 }
+
+/* ---- login (typed name + PIN) ----
+   Top-aligned and compact, with no breakpoint that re-lays it out: when the keyboard
+   shrinks the viewport nothing moves, the form simply stays where it was. */
+.login {
+  display: flex;
+  flex-direction: column;
+  max-width: 420px;
+  min-height: 100dvh;
+  margin: 0 auto;
+  padding: 20px 24px 16px;
+}
+
+.login-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.login-brand h1 {
+  margin: 0;
+  font-size: 24px;
+  line-height: 1.1;
+}
+
+.login-brand p {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.login form {
+  display: flex;
+  flex-direction: column;
+}
+
+.login label {
+  margin: 10px 0 4px;
+}
+
+.field {
+  position: relative;
+}
+
+.field input {
+  padding-right: 56px;
+}
+
+.field .toggle {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+}
+
+.login .primary {
+  width: 100%;
+  min-height: 52px;
+  margin-top: 8px;
+  font-size: 18px;
+}
+
+.form-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-height: 24px;
+  margin: 8px 0 0;
+  color: var(--danger);
+  font-weight: 600;
+}

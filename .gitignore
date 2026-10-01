@@ -3,3 +3,5 @@ dist/
 .env
 .env.local
 .DS_Store
+# visual review screenshots (before/after), not part of the repo
+design-review/

@@ -98,6 +98,12 @@ function fail(code: ErrorCode, message: string): never {
 
 const failedLogins = new Map<string, number>();
 
+// Same rules as the real server: trim, collapse spaces, NFC, case-insensitive.
+const normalizeName = (v: unknown) => String(v ?? '').normalize('NFC').replace(/\s+/g, ' ').trim();
+const nameKey = (v: unknown) => normalizeName(v).toLowerCase();
+const lockoutBucket = (name: string) => `user:${nameKey(name)}`;
+const UNKNOWN_BUCKET = 'unknown-names'; // shared by every name that matches nobody (limit 20)
+
 function auth(token: string | undefined, adminOnly = false): MUser {
   const m = /^mock:(.+):(\d+)$/.exec(token ?? '');
   const user = m && users.find((u) => u.name === m[1]);
@@ -188,14 +194,16 @@ function handle(action: string, p: Payload, token: string | undefined): unknown 
       return { users: users.filter((u) => u.active).map((u) => u.name) };
 
     case 'login': {
-      const name = String(p.user ?? '');
-      if ((failedLogins.get(name) ?? 0) >= 5) fail('LOCKED', 'Too many attempts, try again later');
-      const u = users.find((x) => x.name === name);
+      const typed = normalizeName(p.user);
+      if (!typed || !p.pin) fail('BAD_REQUEST', 'user and pin are required');
+      const u = users.find((x) => nameKey(x.name) === nameKey(typed));
+      const bucket = u ? lockoutBucket(u.name) : UNKNOWN_BUCKET;
+      if ((failedLogins.get(bucket) ?? 0) >= (u ? 5 : 20)) fail('LOCKED', 'Too many attempts, try again later');
       if (!u || !u.active || u.pin !== p.pin) {
-        failedLogins.set(name, (failedLogins.get(name) ?? 0) + 1);
+        failedLogins.set(bucket, (failedLogins.get(bucket) ?? 0) + 1);
         fail('UNAUTHORIZED', 'Invalid name or PIN');
       }
-      failedLogins.delete(name);
+      failedLogins.delete(bucket);
       return {
         token: `mock:${u.name}:${u.tv}`,
         expiresAt: Math.floor(Date.now() / 1000) + 90 * 86400,
@@ -351,9 +359,9 @@ function handle(action: string, p: Payload, token: string | undefined): unknown 
 
     case 'addUser': {
       auth(token, true);
-      const name = validName(p.name, 'name');
+      const name = normalizeName(validName(p.name, 'name'));
       const pin = validatePin(p.pin, 'member');
-      if (users.some((u) => u.name === name)) fail('CONFLICT', 'User already exists');
+      if (users.some((u) => nameKey(u.name) === nameKey(name))) fail('CONFLICT', 'User already exists');
       users.push({ name, role: 'member', active: true, pin, tv: 0 });
       return { name, role: 'member', active: true };
     }
@@ -377,7 +385,7 @@ function handle(action: string, p: Payload, token: string | undefined): unknown 
       if (!u) fail('NOT_FOUND', 'User not found');
       u.pin = validatePin(p.pin, u.role);
       u.tv++;
-      failedLogins.delete(u.name);
+      failedLogins.delete(lockoutBucket(u.name));
       return {};
     }
   }
