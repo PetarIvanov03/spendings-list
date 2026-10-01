@@ -11,7 +11,9 @@ export function todayLocal(): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
-// Picks black or white text, whichever has the better contrast on a #rrggbb background.
+// Text color for a #rrggbb chip background, always at least WCAG AA (4.5:1): the soft near-black
+// when it is readable, else white, else pure black. (The better of pure black and white is never
+// below 4.58:1, so one of the three always passes.)
 export function textColorFor(hex: string): string {
   const m = /^#([0-9a-f]{6})$/i.exec(hex);
   if (!m) return '#1b1b1b';
@@ -20,9 +22,12 @@ export function textColorFor(hex: string): string {
     return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
   };
   const lum = 0.2126 * channel(0) + 0.7152 * channel(2) + 0.0722 * channel(4);
-  const contrastWithBlack = (lum + 0.05) / 0.05;
-  const contrastWithWhite = 1.05 / (lum + 0.05);
-  return contrastWithBlack >= contrastWithWhite ? '#1b1b1b' : '#ffffff';
+  const SOFT_DARK_LUM = 0.011; // #1b1b1b
+  const contrastDark = (lum + 0.05) / (SOFT_DARK_LUM + 0.05);
+  const contrastWhite = 1.05 / (lum + 0.05);
+  if (contrastDark >= 4.5) return '#1b1b1b';
+  if (contrastWhite >= 4.5) return '#ffffff';
+  return '#000000';
 }
 
 // Same rules as the server: > 0, < 100000, at most 2 decimals. Accepts comma or dot.

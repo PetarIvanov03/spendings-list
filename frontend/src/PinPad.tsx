@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { IconBackspace } from './icons';
 
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'back', '0', 'ok'];
 
@@ -55,7 +56,7 @@ export function PinPad(props: {
             aria-label={k === 'back' ? 'Изтрий' : undefined}
             onClick={() => press(k)}
           >
-            {k === 'back' ? '⌫' : k === 'ok' ? (busy ? '…' : props.okLabel ?? 'OK') : k}
+            {k === 'back' ? <IconBackspace size={26} /> : k === 'ok' ? (busy ? '…' : props.okLabel ?? 'OK') : k}
           </button>
         ))}
       </div>
