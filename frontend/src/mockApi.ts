@@ -38,7 +38,7 @@ function seedExpenses(): MExpense[] {
   let seed = 7;
   const rnd = (n: number) => {
     seed = (seed * 1103515245 + 12345) % 2147483648;
-    return seed % n;
+    return Math.floor(seed / 65536) % n; // high bits: the low bits of this LCG are not random
   };
   const today = new Date();
   const pad = (n: number) => String(n).padStart(2, '0');
@@ -50,7 +50,8 @@ function seedExpenses(): MExpense[] {
     const d = new Date(today.getFullYear(), today.getMonth() - back, 1);
     const maxDay = back === 0 ? today.getDate() : 28;
     d.setDate(1 + rnd(maxDay));
-    const category = cats[rnd(cats.length)];
+    // rows 14 and 15 (last month) always use an inactive and a removed category
+    const category = i === 14 ? 'Дрехи' : i === 15 ? 'Подаръци' : cats[rnd(cats.length)];
     const itemList = ITEMS[category];
     list.push({
       id: newId(),
@@ -58,7 +59,7 @@ function seedExpenses(): MExpense[] {
       item: itemList[rnd(itemList.length)],
       price: (500 + rnd(9000)) / 100,
       category,
-      user: names[rnd(names.length)],
+      user: names[i % names.length], // round robin: every user has data in both months
       createdAt: new Date(d.getTime() + i * 1000).toISOString(),
     });
   }

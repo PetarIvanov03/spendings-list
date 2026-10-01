@@ -465,7 +465,6 @@ button.danger {
 .month-label {
   font-size: 18px;
   font-weight: 600;
-  text-transform: capitalize;
 }
 
 .filter-row {
@@ -670,6 +669,7 @@ button.danger {
 
 .admin-name {
   display: flex;
+  flex: 1 1 auto;
   flex-wrap: wrap;
   align-items: center;
   gap: 6px;
@@ -688,6 +688,11 @@ button.danger {
 
 .row-actions .icon-btn {
   font-size: 16px;
+}
+
+.row-actions .secondary {
+  padding: 0 10px;
+  font-size: 14px;
 }
 
 .cat-chip {

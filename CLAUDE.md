@@ -141,3 +141,20 @@ Do these in order, stopping after each so the owner can verify:
 6. PWA polish, then migrate nothing else: old rows already live in the Sheet.
 
 Rules for Claude Code: keep the code small and readable, no speculative features, no extra dependencies without asking, and ask before changing the Sheet schema or this API contract.
+## Frontend status
+
+All screens are built: Login, Add, List (edit/delete), Summary, Admin (categories and people), own-PIN change, PWA. The API contract is unchanged. Admin UI is hidden from members as a convenience only.
+
+**Layout** (`frontend/src`)
+- `api.ts` (the one `call()`), `auth.ts` (session in localStorage), `storage.ts` (guarded localStorage), `messages.ts` (server errors to Bulgarian), `write.ts` (`runWrite`: one mutating call, never retried).
+- `App.tsx` (session check, login/shell switch), `Shell.tsx` (top bar, tab bar, menu), screens: `Login`, `AddScreen`, `ListScreen` + `ExpenseSheet`, `SummaryScreen`, `AdminScreen` → `AdminCategories`, `AdminUsers`, `ChangePin`.
+- Shared: `components.tsx` (month switcher, sheet, confirm dialog, chips, color picker), `PinPad.tsx`, `useFetch.ts`, `categories.ts` (in-memory cache, invalidated by admin changes), `online.tsx` (offline banner), `toast.tsx`, `format.ts`, `types.ts`.
+- `public/`: `manifest.webmanifest`, `sw.js`, `icons/`. The service worker caches only the app shell, never touches cross-origin requests or non-GET requests, and is registered only in production as `sw.js?v=<build id>` so every release installs a fresh worker.
+
+**Rules the UI follows**
+- A failed write (NETWORK or SERVER_ERROR) is never retried. The user sees the "not sure it was saved" message and the affected data is refetched.
+- A wrong old PIN in `changePin` is FORBIDDEN, so the user stays logged in. A successful PIN change invalidates all tokens and returns to login.
+
+**Mock mode** (dev only, no real API calls): `VITE_MOCK=1 npm run dev` in `frontend/`. Fake users: Петър (admin, PIN 123456), Добринка 1111, Ивомира 2222, Георги 3333. Add `?mockFail=network` (request not executed) or `?mockFail=lost` (executed, response lost) to the URL to test failed writes. The mock module is loaded by dynamic import behind `import.meta.env.DEV` and is not in production builds.
+
+**Checks**: `npm run typecheck && npm run build` from `frontend/`.
