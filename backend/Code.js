@@ -16,7 +16,11 @@ function jsonOk(data) {
 // ---- Per-request state and timing ----
 // Apps Script re-evaluates globals for every execution, so this is per request.
 
-var REQ = { prof: {}, stack: [], ss: null, props: null, lockHeld: false };
+function newRequestState() {
+  return { prof: {}, stack: [], ss: null, props: null, lockHeld: false, action: '', debug: false };
+}
+
+var REQ = newRequestState();
 
 // Runs fn and adds its own time (minus nested timed() calls) to REQ.prof[phase].
 // Phases: auth, open (opening the spreadsheet), read (sheet/cache/property reads), lock, handler.
@@ -118,21 +122,31 @@ function onEdit(e) {
 // ---- Responses ----
 
 // Builds the HTTP response. "ms" is always added; "timing" only for debug requests.
+// Never throws: if the result cannot be built, a minimal JSON error is returned instead.
+// Logs one line per request: action, result code, ms (never PIN, token or payload).
 function respond(result, startedAt, debug) {
-  var total = Date.now() - startedAt;
-  result.ms = total;
-  if (debug) {
-    var p = REQ.prof;
-    result.timing = {
-      auth: p.auth || 0,
-      open: p.open || 0,
-      read: p.read || 0,
-      lock: p.lock || 0,
-      handler: p.handler || 0,
-      total: total,
-    };
+  try {
+    var total = Date.now() - startedAt;
+    result.ms = total;
+    if (debug) {
+      var p = REQ.prof;
+      result.timing = {
+        auth: p.auth || 0,
+        open: p.open || 0,
+        read: p.read || 0,
+        lock: p.lock || 0,
+        handler: p.handler || 0,
+        total: total,
+      };
+    }
+    console.log('doPost action=' + REQ.action + ' result=' + (result.ok ? 'ok' : result.error && result.error.code) + ' ms=' + total);
+    return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    console.error('respond failed: action=' + REQ.action + ' error=' + (err && err.message));
+    return ContentService.createTextOutput(
+      '{"ok":false,"error":{"code":"SERVER_ERROR","message":"Response could not be built"}}'
+    ).setMimeType(ContentService.MimeType.JSON);
   }
-  return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
 }
 
 function errorBody(code, message) {
@@ -306,22 +320,28 @@ function doGet() {
 }
 
 function doPost(e) {
+  REQ = newRequestState(); // never depend on the runtime handing us fresh globals
   var startedAt = Date.now();
-  var body;
+  var debug = false;
   try {
-    body = JSON.parse(e.postData.contents);
-  } catch (err) {
-    return respond(errorBody('BAD_REQUEST', 'Invalid JSON body'), startedAt, false);
-  }
-  var debug = body.debug === true;
+    var body;
+    try {
+      body = JSON.parse(e.postData.contents);
+    } catch (err) {
+      return respond(errorBody('BAD_REQUEST', 'Invalid JSON body'), startedAt, false);
+    }
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      return respond(errorBody('BAD_REQUEST', 'Body must be a JSON object'), startedAt, false);
+    }
+    debug = body.debug === true;
 
-  var action = body.action;
-  var handler = ACTIONS[action];
-  if (!handler) {
-    return respond(errorBody('BAD_REQUEST', 'Unknown action: ' + action), startedAt, debug);
-  }
+    var action = body.action;
+    REQ.action = String(action).substring(0, 40);
+    var handler = ACTIONS[action];
+    if (!handler) {
+      return respond(errorBody('BAD_REQUEST', 'Unknown action: ' + action), startedAt, debug);
+    }
 
-  try {
     var requestId = readRequestId(body);
     var user = null;
     if (!PUBLIC_ACTIONS[action]) {
@@ -343,7 +363,9 @@ function doPost(e) {
     if (err instanceof ApiError) {
       return respond(errorBody(err.code, err.message), startedAt, debug);
     }
-    return respond(errorBody('SERVER_ERROR', err.message || String(err)), startedAt, debug);
+    // Unexpected: log the action name and the message only, never the request contents.
+    console.error('doPost failed: action=' + REQ.action + ' error=' + (err && err.message ? err.message : String(err)));
+    return respond(errorBody('SERVER_ERROR', (err && err.message) || 'Unexpected error'), startedAt, debug);
   }
 }
 
