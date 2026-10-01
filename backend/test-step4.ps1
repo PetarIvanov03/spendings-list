@@ -20,13 +20,14 @@ if (-not $API_URL) { throw 'Set $env:API_URL first' }
 Invoke-WarmUp
 
 $script:fails = 0
-function Check($name, $cond, $res = $null) {
+function Check($name, $cond, $res = $null, $detail = '') {
   if ($cond) { Write-Host "PASS  $name" -ForegroundColor Green; return }
   Write-Host "FAIL  $name" -ForegroundColor Red
   $script:fails++
   if ($null -ne $res) {
     Write-Host "      ok=$($res.ok) code=$($res.error.code) message=$($res.error.message)" -ForegroundColor Yellow
   }
+  if ($detail) { Write-Host "      $detail" -ForegroundColor Yellow }
 }
 function CheckError($name, $res, $code) {
   Check "$name (expected $code, got $($res.error.code))" (($res.ok -eq $false) -and ($res.error.code -eq $code))
@@ -38,6 +39,40 @@ function CountItem($rows, $item) { @($rows | Where-Object { $_.item -eq $item })
 function Pin($user) {
   $secure = Read-Host "PIN for $user" -AsSecureString
   [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure))
+}
+
+# What is wrong with a response that should carry a timing object (field names only).
+function Get-TimingProblem($res, $phases) {
+  if ($null -eq $res.timing) {
+    return "timing object missing; the response only has these fields: $((@($res.PSObject.Properties.Name) -join ', '))"
+  }
+  $absent = @($phases | Where-Object { $null -eq $res.timing.$_ })
+  if ($absent.Count -gt 0) { return "timing present but these phases are missing: $($absent -join ', ')" }
+  return ''
+}
+
+# How two expense lists differ: counts, how many ids are on one side only, which FIELD NAMES differ.
+function Get-ListDifference($first, $second, $firstName, $secondName) {
+  $left = @($first)
+  $right = @($second)
+  $parts = @("$firstName has $($left.Count) rows, $secondName has $($right.Count)")
+  $leftIds = @($left | ForEach-Object { $_.id })
+  $rightIds = @($right | ForEach-Object { $_.id })
+  $onlyLeft = @($leftIds | Where-Object { $rightIds -notcontains $_ }).Count
+  $onlyRight = @($rightIds | Where-Object { $leftIds -notcontains $_ }).Count
+  if ($onlyLeft -gt 0) { $parts += "$onlyLeft id(s) only in $firstName" }
+  if ($onlyRight -gt 0) { $parts += "$onlyRight id(s) only in $secondName" }
+  $differing = @{}
+  foreach ($row in $left) {
+    $other = $right | Where-Object { $_.id -eq $row.id } | Select-Object -First 1
+    if ($null -eq $other) { continue }
+    foreach ($field in $row.PSObject.Properties.Name) {
+      if ("$($row.$field)" -cne "$($other.$field)") { $differing[$field] = $true }
+    }
+  }
+  if ($differing.Count -gt 0) { $parts += "fields that differ: $((@($differing.Keys) | Sort-Object) -join ', ')" }
+  if ($parts.Count -eq 1 -and $left.Count -eq $right.Count) { $parts += 'same rows and values, different order' }
+  return ($parts -join '; ')
 }
 
 $thisMonth = Get-Date -Format 'yyyy-MM'
@@ -83,9 +118,23 @@ try {
   Check 'no timing object without debug' ($null -eq $plain.timing)
   $timed = Api 'me' @{} $tokUserA -WithTiming
   $phases = @('auth', 'open', 'read', 'lock', 'handler', 'total')
-  Check 'debug:true adds timing with auth, open, read, lock, handler, total' (($null -ne $timed.timing) -and (@($phases | Where-Object { $null -eq $timed.timing.$_ }).Count -eq 0)) $timed
+  $timingProblem = Get-TimingProblem $timed $phases
+  Check 'debug:true adds timing with auth, open, read, lock, handler, total' ($timingProblem -eq '') $timed $timingProblem
   if ($timed.timing) { Write-Host "      timing: $(ConvertTo-Json $timed.timing -Compress)" -ForegroundColor DarkGray }
   CheckError 'unknown action still carries an error' (Api 'noSuchAction') 'BAD_REQUEST'
+
+  # --- echo of action and requestId (the helper rejects any response that does not match) ---
+  $echoId = 'echo-' + [guid]::NewGuid().ToString('N')
+  $echoRead = Api 'me' @{} $tokUserA $echoId
+  Check 'read echoes its action and requestId' (($echoRead.action -ceq 'me') -and ($echoRead.requestId -ceq $echoId)) $echoRead "echoed action: $($echoRead.action); requestId echoed: $($null -ne $echoRead.requestId)"
+  $echoUnknown = Api 'noSuchAction' @{} $tokUserA $echoId
+  Check 'error responses echo too' (($echoUnknown.action -ceq 'noSuchAction') -and ($echoUnknown.requestId -ceq $echoId)) $echoUnknown
+  $echoDenied = Api 'me' @{} 'not-a-token' $echoId
+  Check 'UNAUTHORIZED responses echo too' (($echoDenied.error.code -eq 'UNAUTHORIZED') -and ($echoDenied.action -ceq 'me') -and ($echoDenied.requestId -ceq $echoId)) $echoDenied
+  Check 'the helper rejects the old "pong" answer' (-not (Test-ResponseMatches ([pscustomobject]@{ ok = $true; data = 'pong' }) 'me' $echoId))
+  Check 'the helper rejects another action' (-not (Test-ResponseMatches ([pscustomobject]@{ action = 'login'; requestId = $echoId }) 'me' $echoId))
+  Check 'the helper rejects another requestId' (-not (Test-ResponseMatches ([pscustomobject]@{ action = 'me'; requestId = 'someone-else-0001' }) 'me' $echoId))
+  Check 'the helper accepts a matching echo' (Test-ResponseMatches ([pscustomobject]@{ action = 'me'; requestId = $echoId }) 'me' $echoId)
 
   # --- test data: one row for A, one for B, both today ---
   $addA = Api 'addExpense' @{ date = $today; item = 't4-a'; price = 1.11; category = $ActiveCategory } $tokUserA
@@ -110,7 +159,8 @@ try {
   Check 'admin bootstrap sees both rows' (($bootAdmin.ok) -and ((CountItem $bootAdmin.data.expenses 't4-a') -eq 1) -and ((CountItem $bootAdmin.data.expenses 't4-b') -eq 1) -and $bootAdmin.data.me.role -eq 'admin')
   $bootAll = Api 'bootstrap' @{} $tokUserA
   $listAll = Api 'listExpenses' @{} $tokUserA
-  Check 'bootstrap without month equals listExpenses without month' ($bootAll.ok -and (Same $bootAll.data.expenses $listAll.data))
+  $allProblem = if (-not $bootAll.ok) { "bootstrap failed: code=$($bootAll.error.code)" } elseif (-not $listAll.ok) { "listExpenses failed: code=$($listAll.error.code)" } else { Get-ListDifference $bootAll.data.expenses $listAll.data 'bootstrap' 'listExpenses' }
+  Check 'bootstrap without month equals listExpenses without month' ($bootAll.ok -and $listAll.ok -and (Same $bootAll.data.expenses $listAll.data)) $null $allProblem
   CheckError 'bootstrap with a bad month' (Api 'bootstrap' @{ month = '2026-13' } $tokUserA) 'BAD_REQUEST'
   CheckError 'bootstrap without a token' (Api 'bootstrap' @{ month = $thisMonth }) 'UNAUTHORIZED'
 
@@ -122,6 +172,7 @@ try {
   $rowsAfterTwo = (Api 'listExpenses' @{ month = $thisMonth } $tokUserA).data
   Check 'same requestId sent twice: both ok' ($first.ok -and $second.ok) $second
   Check 'same requestId sent twice: identical response data' (Same $first.data $second.data)
+  Check 'write and its replay both echo that requestId and action' (($first.requestId -ceq $sharedRequestId) -and ($second.requestId -ceq $sharedRequestId) -and ($first.action -ceq 'addExpense') -and ($second.action -ceq 'addExpense'))
   Check 'same requestId sent twice: exactly one row exists' ((CountItem $rowsAfterTwo 't4-idem') -eq 1)
 
   # --- a different requestId is a new request ---
