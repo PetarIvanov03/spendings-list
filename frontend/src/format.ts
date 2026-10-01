@@ -38,9 +38,9 @@ export function parsePrice(text: string): number | null {
   return n > 0 && n < 100000 ? n : null;
 }
 
-// Price as shown in an input field (bg decimal comma).
+// Price as shown in an input field: bg decimal comma, always 2 decimals ("17,30").
 export function priceToInput(price: number): string {
-  return String(price).replace('.', ',');
+  return price.toFixed(2).replace('.', ',');
 }
 
 const MONTHS = ['януари', 'февруари', 'март', 'април', 'май', 'юни', 'юли', 'август', 'септември', 'октомври', 'ноември', 'декември'];

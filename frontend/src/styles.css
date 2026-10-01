@@ -53,6 +53,7 @@
   --surface-2: #eceef3; /* tracks, skeletons, inset */
   --surface-3: #dfe2ea; /* pressed */
   --field: #ffffff;
+  --segment-on: #ffffff;
   --line: #d6dae3;
   --line-strong: #7f8899; /* control boundaries: 3:1 on white */
 
@@ -89,6 +90,7 @@
     --surface-2: #20242c;
     --surface-3: #2a2f39;
     --field: #12151a;
+    --segment-on: #2d333e;
     --line: #2d333e;
     --line-strong: #6c7589; /* control boundaries: 3:1 on surface-1 */
 
@@ -407,7 +409,7 @@ input[type='color'] {
 }
 
 .content .page {
-  animation: screen-in var(--dur-base) var(--ease-out) both;
+  animation: screen-in var(--dur-base) var(--ease-out) backwards; /* not 'both': a kept transform would trap position:fixed sheets */
 }
 
 .tabbar {
@@ -510,7 +512,7 @@ input[type='color'] {
   color: var(--surface-0);
   box-shadow: var(--shadow-2);
   font-weight: 600;
-  animation: toast-in var(--dur-base) var(--ease-out) both;
+  animation: toast-in var(--dur-base) var(--ease-out) backwards;
 }
 
 .notice {
@@ -567,7 +569,7 @@ input[type='color'] {
   background: var(--surface-1);
   box-shadow: var(--shadow-sheet);
   outline: none;
-  animation: sheet-in var(--dur-slow) var(--ease-out) both;
+  animation: sheet-in var(--dur-slow) var(--ease-out) backwards;
 }
 
 .sheet-grip {
@@ -592,7 +594,7 @@ input[type='color'] {
   border-radius: var(--radius-xl);
   background: var(--surface-1);
   box-shadow: var(--shadow-sheet);
-  animation: pop-in var(--dur-base) var(--ease-out) both;
+  animation: pop-in var(--dur-base) var(--ease-out) backwards;
 }
 
 .confirm h2 {
@@ -734,8 +736,9 @@ input[type='color'] {
 }
 
 .refresh-line {
-  min-height: 1.2em;
-  margin-top: var(--sp-1);
+  min-height: 16px;
+  margin-top: 0;
+  line-height: 16px;
   color: var(--text-3);
   font-size: var(--fs-xs);
   text-align: right;
@@ -821,7 +824,7 @@ input[type='color'] {
 }
 
 .segmented .filter-chip.on {
-  background: var(--surface-1);
+  background: var(--segment-on);
   color: var(--text);
   box-shadow: var(--shadow-1);
 }
@@ -868,7 +871,7 @@ input[type='color'] {
 .day-head {
   display: flex;
   justify-content: space-between;
-  margin: var(--sp-5) var(--sp-1) var(--sp-2);
+  margin: var(--sp-3) var(--sp-1) var(--sp-2);
   color: var(--text-2);
   font-size: var(--fs-sm);
   font-weight: 700;
@@ -942,7 +945,7 @@ input[type='color'] {
    Add screen
    ===================================================================== */
 .page.add {
-  padding-bottom: 148px; /* room for the sticky save bar */
+  padding-bottom: 104px; /* room for the sticky save bar */
 }
 
 .amount-field {
@@ -960,8 +963,8 @@ input[type='color'] {
 }
 
 .amount-field input {
-  width: auto;
-  max-width: 260px;
+  width: 4.5ch;
+  max-width: 100%;
   min-height: 76px;
   padding: 0;
   border: 0;
@@ -1010,6 +1013,7 @@ input[type='color'] {
 .date-pill input {
   position: absolute;
   inset: 0;
+  font-size: var(--fs-md); /* 16px: no zoom on iOS */
   width: 100%;
   min-height: 0;
   height: 100%;
@@ -1031,14 +1035,10 @@ input[type='color'] {
   z-index: 7;
   width: 100%;
   max-width: var(--column);
-  padding: var(--sp-6) var(--sp-4) var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
   transform: translateX(-50%);
-  background: linear-gradient(to top, var(--surface-0) 72%, transparent);
-  pointer-events: none;
-}
-
-.save-bar > * {
-  pointer-events: auto;
+  background: var(--surface-0);
+  border-top: 1px solid var(--line);
 }
 
 .save-bar .error {
@@ -1057,7 +1057,7 @@ input[type='color'] {
 
 .pending-item {
   padding: var(--sp-2) var(--sp-4);
-  animation: pop-in var(--dur-base) var(--ease-out) both;
+  animation: pop-in var(--dur-base) var(--ease-out) backwards;
 }
 
 .pending-item + .pending-item {
@@ -1065,7 +1065,7 @@ input[type='color'] {
 }
 
 .pending-item.failed {
-  border-left: 4px solid var(--danger);
+  box-shadow: inset 4px 0 0 var(--danger); /* clipped by the card radius, unlike a border */
 }
 
 .pending-line {
@@ -1207,8 +1207,12 @@ input[type='color'] {
   border-top: 1px solid var(--line);
 }
 
-.admin-row.dim .admin-name {
-  opacity: 0.6;
+.admin-row.dim .cat-chip {
+  opacity: 0.7;
+}
+
+.admin-row.dim strong {
+  color: var(--text-2);
 }
 
 .admin-name {
@@ -1333,6 +1337,8 @@ input[type='color'] {
 
 /* =====================================================================
    Login
+   Top-aligned and compact with no breakpoint that re-lays it out: when the keyboard shrinks
+   the viewport nothing moves, the form simply stays where it was.
    ===================================================================== */
 .login {
   display: flex;
@@ -1340,26 +1346,34 @@ input[type='color'] {
   max-width: 420px;
   min-height: 100dvh;
   margin: 0 auto;
-  padding: var(--sp-10) var(--sp-6) var(--sp-6);
-  /* top-aligned on purpose: nothing moves when the keyboard shrinks the viewport */
+  padding: calc(var(--sp-3) + env(safe-area-inset-top)) var(--sp-6) var(--sp-3);
 }
 
 .login-brand {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: var(--sp-2);
-  margin-bottom: var(--sp-8);
-  text-align: center;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-3);
+}
+
+.login-brand h1 {
+  font-size: var(--fs-2xl);
+  line-height: 1.1;
 }
 
 .login-brand p {
+  margin-top: 2px;
   color: var(--text-2);
+  font-size: var(--fs-sm);
 }
 
 .login form {
   display: flex;
   flex-direction: column;
+}
+
+.login label {
+  margin: var(--sp-2) 0 var(--sp-1);
 }
 
 .field {
@@ -1378,8 +1392,8 @@ input[type='color'] {
 
 .login .primary {
   width: 100%;
-  min-height: 56px;
-  margin-top: var(--sp-6);
+  min-height: 52px;
+  margin-top: var(--sp-1);
   font-size: var(--fs-lg);
   border-radius: var(--radius-lg);
 }
@@ -1388,36 +1402,11 @@ input[type='color'] {
   display: flex;
   align-items: flex-start;
   gap: var(--sp-2);
-  min-height: 24px;
-  margin-top: var(--sp-3);
+  min-height: 22px;
+  margin-top: var(--sp-1);
   color: var(--danger);
   font-size: var(--fs-sm);
   font-weight: 600;
-}
-
-@media (max-height: 560px) {
-  .login {
-    padding-top: var(--sp-4);
-  }
-
-  .login-brand {
-    flex-direction: row;
-    justify-content: flex-start;
-    margin-bottom: var(--sp-3);
-    text-align: left;
-  }
-
-  .login-brand p {
-    display: none;
-  }
-
-  .login label {
-    margin-top: var(--sp-2);
-  }
-
-  .login .primary {
-    margin-top: var(--sp-3);
-  }
 }
 
 /* =====================================================================
@@ -1490,4 +1479,74 @@ input[type='color'] {
   .skeleton {
     animation: none;
   }
+}
+
+/* =====================================================================
+   Additions: sheet actions, PIN steps, pending states, segmented scrolling
+   ===================================================================== */
+/* primary actions stay visible while a tall sheet scrolls */
+.sheet-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  margin: var(--sp-4) calc(-1 * var(--sp-4)) calc(-1 * (var(--sp-4) + env(safe-area-inset-bottom)));
+  padding: var(--sp-3) var(--sp-4) calc(var(--sp-4) + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--line);
+  background: var(--surface-1);
+}
+
+.sheet-actions .save {
+  margin-top: 0;
+}
+
+.steps {
+  display: flex;
+  gap: var(--sp-2);
+  margin: var(--sp-2) 0 var(--sp-3);
+}
+
+.step {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--surface-3);
+  transition: background var(--dur-base) var(--ease-out);
+}
+
+.step.on {
+  background: var(--accent);
+}
+
+.step-title {
+  font-weight: 700;
+  text-align: center;
+}
+
+.pending-state.bad {
+  color: var(--danger);
+}
+
+.pending .error {
+  min-height: 0;
+  margin: var(--sp-1) 0 0;
+}
+
+.segmented {
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.segmented::-webkit-scrollbar {
+  display: none;
+}
+
+.segmented .filter-chip {
+  flex: 1 0 auto;
+}
+
+.hero.big-total {
+  margin-top: var(--sp-3);
 }

@@ -61,8 +61,13 @@ export function ChangePinSheet({ user, onClose, onChanged }: {
 
   return (
     <Sheet title="Смяна на ПИН" onClose={onClose}>
-      <p className="muted">
-        {TITLES[step]} ({length} цифри)
+      <div className="steps" aria-hidden="true">
+        {(['old', 'new', 'repeat'] as Step[]).map((st, i) => (
+          <span key={st} className={i <= ['old', 'new', 'repeat'].indexOf(step) ? 'step on' : 'step'} />
+        ))}
+      </div>
+      <p className="step-title">
+        {TITLES[step]} <span className="muted">({length} цифри)</span>
       </p>
       <PinPad
         pin={pins[step]}

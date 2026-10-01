@@ -56,16 +56,24 @@ export function ListScreen({ user }: { user: Session['user'] }) {
 
   return (
     <section className="page">
-      <MonthSwitcher month={month} onChange={setMonth} />
+      <div className="list-head">
+        <MonthSwitcher month={month} onChange={setMonth} />
+        <div className="total-line">
+          <span>Общо за месеца</span>
+          {list.data === null ? <span className="skeleton" style={{ width: 96, height: 24 }} /> : <strong>{formatEur(total)}</strong>}
+        </div>
+        <Refreshing show={list.refreshing} />
+      </div>
+
       {isAdmin && (
         <ChipRow
+          segmented
           label="Филтър по човек"
           value={who}
           onChange={setWho}
           items={[{ value: null, label: 'Всички' }, ...(users.data ?? []).map((u) => ({ value: u.name, label: u.name }))]}
         />
       )}
-      <Refreshing show={list.refreshing} />
       <StaleNotice show={!!list.error && list.data !== null} onRetry={list.refetch} />
       <Notice text={notice} onDismiss={() => setNotice('')} />
 
@@ -73,41 +81,33 @@ export function ListScreen({ user }: { user: Session['user'] }) {
         <ErrorBox message={list.error} onRetry={list.refetch} />
       ) : list.data === null ? (
         <Loading />
+      ) : days.length === 0 ? (
+        <Empty hint="Добави първия разход от екрана „Добави“.">Няма разходи през този месец.</Empty>
       ) : (
-        <>
-          <div className="total-line">
-            <span>Общо</span>
-            <strong>{formatEur(total)}</strong>
+        days.map((day) => (
+          <div key={day.date} className="day">
+            <h3 className="day-head">
+              <span>{dayLabel(day.date)}</span>
+              <span>{formatEur(sumPrices(day.rows.map((r) => r.price)))}</span>
+            </h3>
+            <ul className="rows card">
+              {day.rows.map((r) => (
+                <li key={r.id}>
+                  <button className="row" onClick={() => setEditing(r)}>
+                    <span className="row-main">
+                      <span className="row-item">{r.item}</span>
+                      <span className="row-meta">
+                        <CategoryTag name={r.category} colors={colors} />
+                        {isAdmin && <span>{r.user || NO_USER}</span>}
+                      </span>
+                    </span>
+                    <span className="row-price">{formatEur(r.price)}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
           </div>
-          {days.length === 0 ? (
-            <Empty>Няма разходи през този месец.</Empty>
-          ) : (
-            days.map((day) => (
-              <div key={day.date} className="day">
-                <h3 className="day-head">
-                  <span>{dayLabel(day.date)}</span>
-                  <span>{formatEur(sumPrices(day.rows.map((r) => r.price)))}</span>
-                </h3>
-                <ul className="rows">
-                  {day.rows.map((r) => (
-                    <li key={r.id}>
-                      <button className="row" onClick={() => setEditing(r)}>
-                        <span className="row-main">
-                          <span className="row-item">{r.item}</span>
-                          <span className="row-meta">
-                            <CategoryTag name={r.category} colors={colors} />
-                            {isAdmin && <span className="muted">{r.user || NO_USER}</span>}
-                          </span>
-                        </span>
-                        <span className="row-price">{formatEur(r.price)}</span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))
-          )}
-        </>
+        ))
       )}
 
       {editing && (

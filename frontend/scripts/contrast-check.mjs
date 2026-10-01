@@ -30,6 +30,8 @@ const PAIRS = [
   ['text', 'surface-0', 4.5, 'body text on page'],
   ['text', 'surface-1', 4.5, 'body text on cards and sheets'],
   ['text', 'surface-2', 4.5, 'text on tracks / skeleton'],
+  ['text', 'segment-on', 4.5, 'selected segment'],
+  ['text-2', 'surface-2', 4.5, 'unselected segment on the track'],
   ['text-2', 'surface-0', 4.5, 'secondary text on page'],
   ['text-2', 'surface-1', 4.5, 'secondary text on cards'],
   ['text-2', 'surface-2', 4.5, 'secondary text on inset (badge, segmented)'],

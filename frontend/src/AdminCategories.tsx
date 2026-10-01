@@ -3,6 +3,7 @@ import { call } from './api';
 import { invalidateCategories } from './categories';
 import { ColorPicker, ConfirmDialog, ErrorBox, Loading, Notice, Sheet } from './components';
 import { textColorFor } from './format';
+import { IconArrowDown, IconArrowUp, IconEdit } from './icons';
 import { useOnline } from './online';
 import { useToast } from './toast';
 import type { AdminCategory } from './types';
@@ -66,6 +67,30 @@ export function AdminCategories() {
     if (!r.ok) setNotice(r.message);
   }
 
+  function renderRow(c: AdminCategory) {
+    const group = sorted.filter((x) => x.active === c.active);
+    const idx = group.findIndex((x) => x.name === c.name);
+    return (
+      <li key={c.name} className={c.active ? 'admin-row' : 'admin-row dim'}>
+        <span className="admin-name">
+          <Chip name={c.name} color={c.color} />
+          {!c.active && <span className="badge badge-off">неактивна</span>}
+        </span>
+        <span className="row-actions">
+          <button className="icon-btn" aria-label={`Нагоре: ${c.name}`} disabled={busy || !online || idx === 0} onClick={() => void move(c, -1)}>
+            <IconArrowUp size={20} />
+          </button>
+          <button className="icon-btn" aria-label={`Надолу: ${c.name}`} disabled={busy || !online || idx === group.length - 1} onClick={() => void move(c, 1)}>
+            <IconArrowDown size={20} />
+          </button>
+          <button className="icon-btn" aria-label={`Промени: ${c.name}`} disabled={busy} onClick={() => setEditing(c)}>
+            <IconEdit size={20} />
+          </button>
+        </span>
+      </li>
+    );
+  }
+
   return (
     <div>
       <Notice text={notice} onDismiss={() => setNotice('')} />
@@ -74,31 +99,16 @@ export function AdminCategories() {
       ) : cats.data === null ? (
         <Loading />
       ) : (
-        <ul className="admin-list">
-          {sorted.map((c) => {
-            const group = sorted.filter((x) => x.active === c.active);
-            const idx = group.findIndex((x) => x.name === c.name);
-            return (
-              <li key={c.name} className={c.active ? 'admin-row' : 'admin-row dim'}>
-                <span className="admin-name">
-                  <Chip name={c.name} color={c.color} />
-                  {!c.active && <span className="badge">неактивна</span>}
-                </span>
-                <span className="row-actions">
-                  <button className="icon-btn" aria-label={`Нагоре: ${c.name}`} disabled={busy || !online || idx === 0} onClick={() => void move(c, -1)}>
-                    ▲
-                  </button>
-                  <button className="icon-btn" aria-label={`Надолу: ${c.name}`} disabled={busy || !online || idx === group.length - 1} onClick={() => void move(c, 1)}>
-                    ▼
-                  </button>
-                  <button className="secondary" disabled={busy} onClick={() => setEditing(c)}>
-                    Промени
-                  </button>
-                </span>
-              </li>
-            );
-          })}
-        </ul>
+        <>
+          <h3 className="section-title">Активни</h3>
+          <ul className="admin-list card">{sorted.filter((c) => c.active).map(renderRow)}</ul>
+          {sorted.some((c) => !c.active) && (
+            <>
+              <h3 className="section-title">Неактивни</h3>
+              <ul className="admin-list card">{sorted.filter((c) => !c.active).map(renderRow)}</ul>
+            </>
+          )}
+        </>
       )}
       <button className="primary save" disabled={busy || !online} onClick={() => setAdding(true)}>
         Нова категория

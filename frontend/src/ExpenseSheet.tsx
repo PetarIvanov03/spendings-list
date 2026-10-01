@@ -67,33 +67,39 @@ export function ExpenseSheet({ expense, categories, onClose, onDone }: {
   return (
     <Sheet title="Редакция" onClose={onClose}>
       <form onSubmit={save} noValidate>
-        <label htmlFor="e-price">Цена (€)</label>
-        <input
-          id="e-price"
-          className="price-input"
-          type="text"
-          inputMode="decimal"
-          autoComplete="off"
-          value={price}
-          onChange={(e) => {
-            if (/^\d*[.,]?\d{0,2}$/.test(e.target.value)) setPrice(e.target.value);
-          }}
-        />
+        <div className="amount-field">
+          <label htmlFor="e-price" className="sr-only">Сума (€)</label>
+          <input
+            id="e-price"
+            type="text"
+            inputMode="decimal"
+            autoComplete="off"
+            placeholder="0,00"
+            style={{ width: `${Math.max(price.length, 4) + 0.5}ch` }}
+            value={price}
+            onChange={(e) => {
+              if (/^\d*[.,]?\d{0,2}$/.test(e.target.value)) setPrice(e.target.value);
+            }}
+          />
+          <span className="amount-currency" aria-hidden="true">€</span>
+        </div>
         <label htmlFor="e-item">Какво</label>
         <input id="e-item" type="text" maxLength={100} autoComplete="off" value={item} onChange={(e) => setItem(e.target.value)} />
         <label htmlFor="e-date">Дата</label>
         <input id="e-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
         <span className="label" id="e-cat">Категория</span>
-        <CategoryChips categories={options} selected={category} onSelect={setCategory} labelledBy="e-cat" />
+        <CategoryChips categories={options} selected={category} onSelect={setCategory} labelledBy="e-cat" grid />
 
         <p className="error" role="alert">{error}</p>
         {!online && <p className="muted">Няма връзка — промените са изключени.</p>}
-        <button type="submit" className="primary save" disabled={busy || !online}>
-          {busy ? 'Записвам…' : 'Запази'}
-        </button>
-        <button type="button" className="danger-outline" disabled={busy || !online} onClick={() => setConfirmDelete(true)}>
-          Изтрий
-        </button>
+        <div className="sheet-actions">
+          <button type="submit" className="primary save" disabled={busy || !online}>
+            {busy ? 'Записвам…' : 'Запази'}
+          </button>
+          <button type="button" className="danger-outline" disabled={busy || !online} onClick={() => setConfirmDelete(true)}>
+            Изтрий
+          </button>
+        </div>
       </form>
 
       {confirmDelete && (

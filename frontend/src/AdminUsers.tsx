@@ -26,6 +26,21 @@ export function AdminUsers({ me }: { me: Session['user'] }) {
     else toast(message);
   }
 
+  function renderRow(u: AdminUser) {
+    return (
+      <li key={u.name} className={u.active ? 'admin-row' : 'admin-row dim'}>
+        <span className="admin-name">
+          <strong>{u.name}</strong>
+          <span className={u.role === 'admin' ? 'badge badge-admin' : 'badge'}>{u.role === 'admin' ? 'админ' : 'член'}</span>
+          <span className={u.active ? 'badge badge-ok' : 'badge badge-off'}>{u.active ? 'активен' : 'неактивен'}</span>
+        </span>
+        <button className="secondary" onClick={() => setSelected(u)}>
+          Управление
+        </button>
+      </li>
+    );
+  }
+
   return (
     <div>
       <Notice text={notice} onDismiss={() => setNotice('')} />
@@ -34,20 +49,16 @@ export function AdminUsers({ me }: { me: Session['user'] }) {
       ) : users.data === null ? (
         <Loading />
       ) : (
-        <ul className="admin-list">
-          {users.data.map((u) => (
-            <li key={u.name} className={u.active ? 'admin-row' : 'admin-row dim'}>
-              <span className="admin-name">
-                <strong>{u.name}</strong>
-                <span className="badge">{u.role === 'admin' ? 'админ' : 'член'}</span>
-                {!u.active && <span className="badge">неактивен</span>}
-              </span>
-              <button className="secondary" onClick={() => setSelected(u)}>
-                Управление
-              </button>
-            </li>
-          ))}
-        </ul>
+        <>
+          <h3 className="section-title">Активни</h3>
+          <ul className="admin-list card">{users.data.filter((u) => u.active).map(renderRow)}</ul>
+          {users.data.some((u) => !u.active) && (
+            <>
+              <h3 className="section-title">Неактивни</h3>
+              <ul className="admin-list card">{users.data.filter((u) => !u.active).map(renderRow)}</ul>
+            </>
+          )}
+        </>
       )}
       <button className="primary save" disabled={!online} onClick={() => setAdding(true)}>
         Добави човек

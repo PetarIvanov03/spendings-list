@@ -15,7 +15,7 @@ function Bars({ rows, total, colorOf }: {
 }) {
   const max = Math.max(...rows.map((r) => r.amount), 0);
   return (
-    <ul className="bars">
+    <ul className="bars card">
       {rows.map((r) => (
         <li key={r.key}>
           <div className="bar-line">
@@ -62,6 +62,7 @@ export function SummaryScreen({ user }: { user: Session['user'] }) {
       <MonthSwitcher month={month} onChange={setMonth} />
       {isAdmin && (
         <ChipRow
+          segmented
           label="Обхват на справката"
           value={who}
           onChange={setWho}
@@ -75,13 +76,13 @@ export function SummaryScreen({ user }: { user: Session['user'] }) {
       {summary.error && data === null ? (
         <ErrorBox message={summary.error} onRetry={summary.refetch} />
       ) : data === null ? (
-        <Loading />
+        <Loading variant="summary" />
       ) : data.byCategory.length === 0 ? (
-        <Empty>Няма разходи през този месец.</Empty>
+        <Empty hint="Когато добавиш разходи, ще ги видиш тук.">Няма разходи през този месец.</Empty>
       ) : (
         <>
-          <div className="big-total">
-            <span className="muted">Общо</span>
+          <div className="card hero big-total">
+            <span className="muted">Общо за месеца</span>
             <strong>{formatEur(data.total)}</strong>
           </div>
 

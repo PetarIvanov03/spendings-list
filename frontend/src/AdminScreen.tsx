@@ -10,6 +10,7 @@ export function AdminScreen({ user }: { user: Session['user'] }) {
   return (
     <section className="page">
       <ChipRow
+        segmented
         label="Раздел"
         value={section}
         onChange={setSection}

@@ -5,7 +5,8 @@ import { invalidateDataCaches } from './cache';
 import { getCategories, peekCategories } from './categories';
 import { CategoryChips, ConfirmDialog, ErrorBox, Loading } from './components';
 import { markAction } from './debug';
-import { formatEur, parsePrice, todayLocal } from './format';
+import { dayLabel, formatEur, parsePrice, todayLocal } from './format';
+import { IconAlert, IconCalendar, IconCheck } from './icons';
 import { errorText } from './messages';
 import { loadPending, REPLAY_WINDOW_MS, savePending, type PendingExpense } from './pending';
 import { store } from './storage';
@@ -116,8 +117,8 @@ export function AddScreen({ user, active }: { user: Session['user']; active: boo
     e.preventDefault();
     const amount = parsePrice(price);
     const text = item.trim();
-    if (amount === null) return setError('Въведи валидна цена (над 0, до 2 цифри след запетаята).');
-    if (!text) return setError('Въведи описание.');
+    if (amount === null) return setError('Въведи валидна сума (над 0, до 2 цифри след запетаята).');
+    if (!text) return setError('Въведи какво е.');
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return setError('Избери дата.');
     if (!category) return setError('Избери категория.');
 
@@ -141,10 +142,12 @@ export function AddScreen({ user, active }: { user: Session['user']; active: boo
     void send(p);
   }
 
+  const dateText = date === todayLocal() ? 'Днес' : /^\d{4}-\d{2}-\d{2}$/.test(date) ? dayLabel(date) : 'Дата';
+
   return (
-    <section className="page">
+    <section className="page add">
       {pending.length > 0 && (
-        <ul className="pending" aria-label="Изпращане на разходи">
+        <ul className="pending card" aria-label="Изпращане на разходи">
           {pending.map((p) => (
             <li key={p.rid} className={`pending-item ${p.status}`}>
               <div className="pending-line">
@@ -156,7 +159,16 @@ export function AddScreen({ user, active }: { user: Session['user']; active: boo
                     <span className="spinner" aria-hidden="true" /> {p.attempt > 0 ? 'Опитвам пак…' : 'Записвам…'}
                   </span>
                 )}
-                {p.status === 'saved' && <span className="pending-state ok" role="status">✓ Записано</span>}
+                {p.status === 'saved' && (
+                  <span className="pending-state ok" role="status">
+                    <IconCheck size={18} /> Записано
+                  </span>
+                )}
+                {p.status === 'failed' && (
+                  <span className="pending-state bad" aria-hidden="true">
+                    <IconAlert size={18} />
+                  </span>
+                )}
               </div>
               {p.status === 'failed' && (
                 <>
@@ -175,50 +187,74 @@ export function AddScreen({ user, active }: { user: Session['user']; active: boo
       )}
 
       <form onSubmit={save} noValidate>
-        <label htmlFor="price">Цена (€)</label>
-        <input
-          id="price"
-          ref={priceRef}
-          className="price-input"
-          type="text"
-          inputMode="decimal"
-          autoComplete="off"
-          autoFocus
-          placeholder="0,00"
-          value={price}
-          onChange={(e) => {
-            if (/^\d*[.,]?\d{0,2}$/.test(e.target.value)) setPrice(e.target.value);
-          }}
-        />
+        <div className="amount-field">
+          <label htmlFor="price" className="sr-only">Сума (€)</label>
+          <input
+            id="price"
+            ref={priceRef}
+            type="text"
+            inputMode="decimal"
+            autoComplete="off"
+            autoFocus
+            placeholder="0,00"
+            style={{ width: `${Math.max(price.length, 4) + 0.5}ch` }}
+            value={price}
+            onChange={(e) => {
+              if (/^\d*[.,]?\d{0,2}$/.test(e.target.value)) setPrice(e.target.value);
+            }}
+          />
+          <span className="amount-currency" aria-hidden="true">€</span>
+        </div>
 
-        <label htmlFor="item">Какво</label>
+        <label htmlFor="item" className="sr-only">Какво</label>
         <input
           id="item"
           type="text"
           maxLength={100}
           autoComplete="off"
+          placeholder="Какво купи?"
           value={item}
           onChange={(e) => setItem(e.target.value)}
         />
 
-        <label htmlFor="date">Дата</label>
-        <input id="date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+        <div className="meta-row">
+          <label className="date-pill">
+            <IconCalendar size={18} />
+            <span>{dateText}</span>
+            <input
+              id="date"
+              type="date"
+              aria-label="Дата"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              onClick={(e) => {
+                try {
+                  e.currentTarget.showPicker?.(); // desktop browsers: open the picker on click
+                } catch {
+                  /* not allowed here: the native control still works */
+                }
+              }}
+            />
+          </label>
+        </div>
 
         <span className="label" id="cat-label">Категория</span>
         {catError ? (
           <ErrorBox message={catError} onRetry={() => loadCategories()} />
         ) : categories === null ? (
-          <Loading />
+          <Loading variant="chips" />
         ) : categories.length === 0 ? (
           <p className="muted">Няма активни категории.</p>
         ) : (
-          <CategoryChips categories={categories} selected={category} onSelect={setCategory} labelledBy="cat-label" />
+          <CategoryChips categories={categories} selected={category} onSelect={setCategory} labelledBy="cat-label" grid />
         )}
 
-        <p className="error" role="alert">{error}</p>
-        <button type="submit" className="primary save">
-          Запази
-        </button>
+        <div className="save-bar">
+          <p className="error" role="alert">{error}</p>
+          <button type="submit" className="primary save">
+            Запази
+          </button>
+        </div>
       </form>
 
       {confirmOld && (
