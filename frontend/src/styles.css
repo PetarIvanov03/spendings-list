@@ -490,3 +490,95 @@ button.danger {
   color: var(--accent-fg);
   font-weight: 700;
 }
+
+/* ---- list ---- */
+.total-line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 8px 0 12px;
+  font-size: 18px;
+}
+
+.total-line strong {
+  font-size: 28px;
+}
+
+.day-head {
+  display: flex;
+  justify-content: space-between;
+  margin: 16px 0 4px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--field);
+  overflow: hidden;
+}
+
+.rows li + li {
+  border-top: 1px solid var(--border);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 56px;
+  padding: 8px 12px;
+  border-radius: 0;
+  background: none;
+  color: var(--fg);
+  text-align: left;
+}
+
+.row-main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.row-item {
+  overflow-wrap: anywhere;
+  font-weight: 600;
+}
+
+.row-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.row-price {
+  flex: none;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.tag {
+  padding: 1px 10px;
+  border-radius: 10px;
+  font-size: 13px;
+}
+
+.danger-outline {
+  width: 100%;
+  min-height: 52px;
+  margin-top: 12px;
+  border: 2px solid var(--danger);
+  background: none;
+  color: var(--danger);
+  font-weight: 600;
+}
