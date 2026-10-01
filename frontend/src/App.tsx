@@ -1,14 +1,28 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ApiError, call, setUnauthorizedHandler } from './api';
 import { clearSession, loadSession, saveSession, type Session } from './auth';
+import { invalidateCategories } from './categories';
 import { errorText } from './messages';
-import { AddScreen } from './AddScreen';
+import { OnlineProvider } from './online';
+import { ToastProvider } from './toast';
 import { Login } from './Login';
+import { Shell } from './Shell';
 
 export default function App() {
+  return (
+    <OnlineProvider>
+      <ToastProvider>
+        <Root />
+      </ToastProvider>
+    </OnlineProvider>
+  );
+}
+
+function Root() {
   const [session, setSession] = useState<Session | null>(loadSession);
   const [checking, setChecking] = useState(session !== null);
   const [checkError, setCheckError] = useState('');
+  const [loginNotice, setLoginNotice] = useState('');
 
   // call() clears the token on UNAUTHORIZED and tells us to show the login screen.
   useEffect(() => setUnauthorizedHandler(() => setSession(null)), []);
@@ -38,21 +52,39 @@ export default function App() {
 
   useEffect(validate, [validate]);
 
-  function logout() {
+  function logout(notice = '') {
     clearSession();
+    invalidateCategories();
+    setLoginNotice(notice);
     setSession(null);
   }
 
-  if (!session) return <Login onLogin={setSession} />;
+  if (!session) {
+    return (
+      <Login
+        notice={loginNotice}
+        onLogin={(s) => {
+          setLoginNotice('');
+          setSession(s);
+        }}
+      />
+    );
+  }
   if (checking) return <main className="page center">Зареждане…</main>;
   if (checkError) {
     return (
       <main className="page center">
         <p className="error" role="alert">{checkError}</p>
         <button className="primary" onClick={validate}>Опитай пак</button>
-        <button className="link" onClick={logout}>Към вход</button>
+        <button className="link" onClick={() => logout()}>Към вход</button>
       </main>
     );
   }
-  return <AddScreen user={session.user} onLogout={logout} />;
+  return (
+    <Shell
+      user={session.user}
+      onLogout={() => logout()}
+      onPinChanged={() => logout('ПИН-ът е сменен, влез отново.')}
+    />
+  );
 }

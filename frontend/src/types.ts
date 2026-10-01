@@ -1,0 +1,33 @@
+import type { Role } from './auth';
+
+export interface Category {
+  name: string;
+  color: string;
+  order: number;
+}
+
+export interface AdminCategory extends Category {
+  active: boolean;
+}
+
+export interface Expense {
+  id: string;
+  date: string; // YYYY-MM-DD
+  item: string;
+  price: number;
+  category: string;
+  user: string; // '' for legacy rows
+  createdAt: string;
+}
+
+export interface AdminUser {
+  name: string;
+  role: Role;
+  active: boolean;
+}
+
+export interface SummaryData {
+  total: number;
+  byCategory: { category: string; total: number }[];
+  byUser?: { user: string; total: number }[]; // adminSummary only
+}

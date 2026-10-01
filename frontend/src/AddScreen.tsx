@@ -1,26 +1,19 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { call } from './api';
 import type { Session } from './auth';
-import { formatEur, textColorFor, todayLocal } from './format';
+import { getCategories } from './categories';
+import { CategoryChips, ErrorBox, Loading } from './components';
+import { formatEur, parsePrice, todayLocal } from './format';
 import { errorText } from './messages';
+import { useOnline } from './online';
 import { store } from './storage';
+import type { Category } from './types';
 
-interface Category {
-  name: string;
-  color: string;
-  order: number;
-}
-
-// Same rules as the server: > 0, < 100000, at most 2 decimals. Accepts comma or dot.
-function parsePrice(text: string): number | null {
-  const s = text.trim().replace(',', '.');
-  if (!/^\d+(\.\d{1,2})?$/.test(s)) return null;
-  const n = Number(s);
-  return n > 0 && n < 100000 ? n : null;
-}
-
-export function AddScreen({ user, onLogout }: { user: Session['user']; onLogout: () => void }) {
+// `active` is false while another tab is shown: this screen stays mounted so unsaved
+// fields survive tab switches, and refreshes its categories when it becomes visible again.
+export function AddScreen({ user, active }: { user: Session['user']; active: boolean }) {
   const lastKey = `lastCategory:${user.name}`;
+  const online = useOnline();
   const [categories, setCategories] = useState<Category[] | null>(null);
   const [catError, setCatError] = useState('');
   const [category, setCategory] = useState<string | null>(null);
@@ -34,18 +27,25 @@ export function AddScreen({ user, onLogout }: { user: Session['user']; onLogout:
   const savedTimer = useRef<number | undefined>(undefined);
   const inFlight = useRef(false); // synchronous guard against double submits
 
-  const loadCategories = useCallback(() => {
-    setCategories(null);
+  const loadCategories = useCallback((keepList = false) => {
+    if (!keepList) setCategories(null);
     setCatError('');
-    call<Category[]>('categories')
+    getCategories()
       .then((list) => {
         setCategories(list);
         const last = store.get(lastKey);
-        setCategory((current) => current ?? (list.some((c) => c.name === last) ? last : null));
+        // Keep the selection if it still exists, else fall back to the last used one.
+        setCategory((current) => {
+          if (current && list.some((c) => c.name === current)) return current;
+          return list.some((c) => c.name === last) ? last : null;
+        });
       })
       .catch((e) => setCatError(errorText(e)));
   }, [lastKey]);
-  useEffect(loadCategories, [loadCategories]);
+
+  useEffect(() => {
+    if (active) loadCategories(true);
+  }, [active, loadCategories]);
   useEffect(() => () => window.clearTimeout(savedTimer.current), []);
 
   async function save(e: FormEvent) {
@@ -82,12 +82,7 @@ export function AddScreen({ user, onLogout }: { user: Session['user']; onLogout:
   }
 
   return (
-    <main className="page">
-      <header className="bar">
-        <span className="who">{user.name}</span>
-        <button className="link" onClick={onLogout}>Изход</button>
-      </header>
-
+    <section className="page">
       <form onSubmit={save} noValidate>
         <label htmlFor="price">Цена (€)</label>
         <input
@@ -120,42 +115,22 @@ export function AddScreen({ user, onLogout }: { user: Session['user']; onLogout:
 
         <span className="label" id="cat-label">Категория</span>
         {catError ? (
-          <>
-            <p className="error" role="alert">{catError}</p>
-            <button type="button" className="secondary" onClick={loadCategories}>Опитай пак</button>
-          </>
+          <ErrorBox message={catError} onRetry={() => loadCategories()} />
         ) : categories === null ? (
-          <p className="muted">Зареждане…</p>
+          <Loading />
         ) : categories.length === 0 ? (
           <p className="muted">Няма активни категории.</p>
         ) : (
-          <div className="chips" role="radiogroup" aria-labelledby="cat-label">
-            {categories.map((c) => {
-              const selected = c.name === category;
-              return (
-                <button
-                  key={c.name}
-                  type="button"
-                  role="radio"
-                  aria-checked={selected}
-                  className={selected ? 'chip selected' : 'chip'}
-                  style={{ background: c.color, color: textColorFor(c.color) }}
-                  onClick={() => setCategory(c.name)}
-                >
-                  {selected && '✓ '}
-                  {c.name}
-                </button>
-              );
-            })}
-          </div>
+          <CategoryChips categories={categories} selected={category} onSelect={setCategory} labelledBy="cat-label" />
         )}
 
         <p className="error" role="alert">{error}</p>
-        <button type="submit" className="primary save" disabled={busy}>
+        <button type="submit" className="primary save" disabled={busy || !online}>
           {busy ? 'Записвам…' : 'Запази'}
         </button>
+        {!online && <p className="muted center-text">Няма връзка — записването е изключено.</p>}
         <p className="saved" role="status">{saved && `Записано ✓ ${saved}`}</p>
       </form>
-    </main>
+    </section>
   );
 }

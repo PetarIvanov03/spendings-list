@@ -19,6 +19,8 @@ export class ApiError extends Error {
   }
 }
 
+export type Envelope = { ok: true; data: unknown } | { ok: false; error: { code?: ErrorCode; message?: string } };
+
 let onUnauthorized: () => void = () => {};
 
 // The app registers this to return to the login screen.
@@ -26,28 +28,38 @@ export function setUnauthorizedHandler(fn: () => void): void {
   onUnauthorized = fn;
 }
 
-// The one function that talks to the backend. Never retries: a request that
-// "failed" on the network may still have been executed by Apps Script.
-export async function call<T>(action: string, payload?: object): Promise<T> {
+async function transport(action: string, payload: object | undefined): Promise<Envelope> {
+  const token = loadSession()?.token;
+
+  // Dev-only mock backend (VITE_MOCK=1 with `npm run dev`). The DEV check lets the
+  // bundler drop this branch, and the mock module, from production builds.
+  if (import.meta.env.DEV && import.meta.env.VITE_MOCK === '1') {
+    const { mockSend } = await import('./mockApi');
+    return mockSend(action, payload, token);
+  }
+
   const url = import.meta.env.VITE_API_URL;
   if (!url) throw new ApiError('NETWORK', 'VITE_API_URL is not set');
-
-  let json: { ok: boolean; data?: T; error?: { code?: ErrorCode; message?: string } };
   try {
     const res = await fetch(url, {
       method: 'POST',
       // text/plain avoids a CORS preflight, which Apps Script cannot answer. No other headers.
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ action, token: loadSession()?.token, payload }),
+      body: JSON.stringify({ action, token, payload }),
     });
-    json = await res.json();
+    return (await res.json()) as Envelope;
   } catch {
     throw new ApiError('NETWORK', 'No usable response from server');
   }
+}
 
-  if (json.ok) return json.data as T;
+// The one function that talks to the backend. Never retries: a request that
+// "failed" on the network may still have been executed by Apps Script.
+export async function call<T>(action: string, payload?: object): Promise<T> {
+  const res = await transport(action, payload);
+  if (res.ok) return res.data as T;
 
-  const err = new ApiError(json.error?.code ?? 'SERVER_ERROR', json.error?.message ?? '');
+  const err = new ApiError(res.error?.code ?? 'SERVER_ERROR', res.error?.message ?? '');
   if (err.code === 'UNAUTHORIZED' && action !== 'login') {
     clearSession();
     onUnauthorized();

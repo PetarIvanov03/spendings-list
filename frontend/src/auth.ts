@@ -31,3 +31,8 @@ export function saveSession(session: Session): void {
 export function clearSession(): void {
   store.remove(KEY);
 }
+
+// Admin PINs are 6 digits, member PINs 4.
+export function pinLength(role: Role): number {
+  return role === 'admin' ? 6 : 4;
+}
