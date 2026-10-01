@@ -82,13 +82,25 @@ $tempPin = '4829'
 $pinAdmin = Pin $Admin
 $pinA = Pin $UserA
 $pinB = Pin $UserB
+# A login that does not return a token makes every later result meaningless: stop at once.
+function Assert-LoginToken($label, $res) {
+  if ($res.ok -and $res.data.token) { return }
+  $dataType = if ($null -eq $res.data) { 'none' } else { $res.data.GetType().Name }
+  $fields = if ($res.data -is [psobject] -and $res.data -isnot [string]) { (@($res.data.PSObject.Properties.Name) -join ', ') } else { '-' }
+  Write-Host "ABORT: login $label did not return a token (ok=$($res.ok), code=$($res.error.code), echoed action=$($res.action), data type=$dataType, data fields=$fields)." -ForegroundColor Red
+  Write-Host 'The server answered, but not with a login result. The remaining tests are not run.' -ForegroundColor Red
+  exit 1
+}
+
 $respAdmin = Api 'login' @{ user = $Admin; pin = $pinAdmin }
-$respA = Api 'login' @{ user = $UserA; pin = $pinA }
-$respB = Api 'login' @{ user = $UserB; pin = $pinB }
 Check 'login admin' ($respAdmin.ok -and $respAdmin.data.user.role -eq 'admin') $respAdmin
+Assert-LoginToken 'admin' $respAdmin
+$respA = Api 'login' @{ user = $UserA; pin = $pinA }
 Check 'login A' ($respA.ok -and $respA.data.user.role -eq 'member') $respA
+Assert-LoginToken 'A' $respA
+$respB = Api 'login' @{ user = $UserB; pin = $pinB }
 Check 'login B' ($respB.ok -and $respB.data.user.role -eq 'member') $respB
-if (-not ($respAdmin.ok -and $respA.ok -and $respB.ok)) { throw 'Login failed, cannot continue' }
+Assert-LoginToken 'B' $respB
 $tokAdmin = $respAdmin.data.token
 $tokA = $respA.data.token
 $tokB = $respB.data.token
