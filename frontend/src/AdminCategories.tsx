@@ -69,7 +69,7 @@ export function AdminCategories() {
   return (
     <div>
       <Notice text={notice} onDismiss={() => setNotice('')} />
-      {cats.error ? (
+      {cats.error && cats.data === null ? (
         <ErrorBox message={cats.error} onRetry={cats.refetch} />
       ) : cats.data === null ? (
         <Loading />

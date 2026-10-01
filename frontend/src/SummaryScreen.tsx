@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react';
 import { call } from './api';
 import type { Session } from './auth';
-import { getCategories } from './categories';
-import { ChipRow, Empty, ErrorBox, Loading, MonthSwitcher } from './components';
+import { useCategories } from './categories';
+import { ChipRow, Empty, ErrorBox, Loading, MonthSwitcher, Refreshing, StaleNotice } from './components';
 import { currentMonth, formatEur, formatPercent, NEUTRAL_COLOR } from './format';
 import type { AdminUser, SummaryData } from './types';
 import { useFetch } from './useFetch';
@@ -44,12 +44,17 @@ export function SummaryScreen({ user }: { user: Session['user'] }) {
         ? call<SummaryData>('adminSummary', { month, ...(who ? { user: who } : {}) })
         : call<SummaryData>('summary', { month }),
     [month, who, isAdmin],
+    { name: 'summary', match: `${month}|${who ?? ''}` },
   );
-  const cats = useFetch(getCategories, []);
-  const users = useFetch(() => (isAdmin ? call<AdminUser[]>('adminUsers') : Promise.resolve([])), [isAdmin]);
+  const categories = useCategories();
+  const users = useFetch(
+    () => (isAdmin ? call<AdminUser[]>('adminUsers') : Promise.resolve([])),
+    [isAdmin],
+    { name: 'adminUsers', match: '' },
+  );
 
   // Only active categories have a color; inactive or removed ones stay neutral.
-  const colors = useMemo(() => new Map((cats.data ?? []).map((c) => [c.name, c.color])), [cats.data]);
+  const colors = useMemo(() => new Map((categories ?? []).map((c) => [c.name, c.color])), [categories]);
   const data = summary.data;
 
   return (
@@ -64,7 +69,10 @@ export function SummaryScreen({ user }: { user: Session['user'] }) {
         />
       )}
 
-      {summary.error ? (
+      <Refreshing show={summary.refreshing} />
+      <StaleNotice show={!!summary.error && data !== null} onRetry={summary.refetch} />
+
+      {summary.error && data === null ? (
         <ErrorBox message={summary.error} onRetry={summary.refetch} />
       ) : data === null ? (
         <Loading />

@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react';
 import { call } from './api';
 import type { Session } from './auth';
-import { getCategories } from './categories';
-import { CategoryTag, ChipRow, Empty, ErrorBox, Loading, MonthSwitcher, Notice } from './components';
+import { useCategories } from './categories';
+import { CategoryTag, ChipRow, Empty, ErrorBox, Loading, MonthSwitcher, Notice, Refreshing, StaleNotice } from './components';
 import { ExpenseSheet, type SheetOutcome } from './ExpenseSheet';
 import { currentMonth, dayLabel, formatEur, sumPrices } from './format';
 import { useToast } from './toast';
@@ -22,11 +22,16 @@ export function ListScreen({ user }: { user: Session['user'] }) {
   const list = useFetch(
     () => call<Expense[]>('listExpenses', { month, ...(who ? { user: who } : {}) }),
     [month, who],
+    { name: 'list', match: `${month}|${who ?? ''}` },
   );
-  const cats = useFetch(getCategories, []);
-  const users = useFetch(() => (isAdmin ? call<AdminUser[]>('adminUsers') : Promise.resolve([])), [isAdmin]);
+  const categories = useCategories();
+  const users = useFetch(
+    () => (isAdmin ? call<AdminUser[]>('adminUsers') : Promise.resolve([])),
+    [isAdmin],
+    { name: 'adminUsers', match: '' },
+  );
 
-  const colors = useMemo(() => new Map((cats.data ?? []).map((c) => [c.name, c.color])), [cats.data]);
+  const colors = useMemo(() => new Map((categories ?? []).map((c) => [c.name, c.color])), [categories]);
   const rows = list.data ?? [];
   const total = sumPrices(rows.map((r) => r.price));
 
@@ -60,9 +65,11 @@ export function ListScreen({ user }: { user: Session['user'] }) {
           items={[{ value: null, label: 'Всички' }, ...(users.data ?? []).map((u) => ({ value: u.name, label: u.name }))]}
         />
       )}
+      <Refreshing show={list.refreshing} />
+      <StaleNotice show={!!list.error && list.data !== null} onRetry={list.refetch} />
       <Notice text={notice} onDismiss={() => setNotice('')} />
 
-      {list.error ? (
+      {list.error && list.data === null ? (
         <ErrorBox message={list.error} onRetry={list.refetch} />
       ) : list.data === null ? (
         <Loading />
@@ -106,7 +113,7 @@ export function ListScreen({ user }: { user: Session['user'] }) {
       {editing && (
         <ExpenseSheet
           expense={editing}
-          categories={cats.data ?? []}
+          categories={categories ?? []}
           onClose={() => setEditing(null)}
           onDone={onDone}
         />

@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
-import { ApiError, call, setUnauthorizedHandler } from './api';
-import { clearSession, loadSession, saveSession, type Session } from './auth';
+import { useEffect, useState } from 'react';
+import { setUnauthorizedHandler } from './api';
+import { clearSession, loadSession, type Session } from './auth';
+import { runBootstrap } from './bootstrap';
+import { clearAllCached } from './cache';
 import { invalidateCategories } from './categories';
-import { markAction } from './debug';
-import { errorText } from './messages';
 import { OnlineProvider } from './online';
 import { ToastProvider } from './toast';
 import { Login } from './Login';
@@ -19,44 +19,32 @@ export default function App() {
   );
 }
 
+// Everything cached from the server is dropped on logout and on UNAUTHORIZED.
+// (Unsent expenses are not cache: they stay, per user, until they are sent or deleted.)
+function forgetServerData() {
+  clearAllCached();
+  invalidateCategories();
+}
+
 function Root() {
+  // A stored session is trusted for the first paint. The bootstrap request started in
+  // main.tsx (or at login) validates it; UNAUTHORIZED then sends us back to the login screen.
   const [session, setSession] = useState<Session | null>(loadSession);
-  const [checking, setChecking] = useState(session !== null);
-  const [checkError, setCheckError] = useState('');
   const [loginNotice, setLoginNotice] = useState('');
 
   // call() clears the token on UNAUTHORIZED and tells us to show the login screen.
-  useEffect(() => setUnauthorizedHandler(() => setSession(null)), []);
-
-  // A stored token is only trusted after the server accepts it.
-  const validate = useCallback(() => {
-    if (!loadSession()) {
-      setSession(null);
-      setChecking(false);
-      return;
-    }
-    setChecking(true);
-    setCheckError('');
-    markAction('start');
-    call<Session['user']>('me')
-      .then((user) => {
-        const stored = loadSession();
-        if (stored) saveSession({ ...stored, user });
-        setSession((s) => s && { ...s, user });
-        setChecking(false);
-      })
-      .catch((e) => {
-        if (e instanceof ApiError && e.code === 'UNAUTHORIZED') setSession(null);
-        else setCheckError(errorText(e));
-        setChecking(false);
-      });
-  }, []);
-
-  useEffect(validate, [validate]);
+  useEffect(
+    () =>
+      setUnauthorizedHandler(() => {
+        forgetServerData();
+        setSession(null);
+      }),
+    [],
+  );
 
   function logout(notice = '') {
     clearSession();
-    invalidateCategories();
+    forgetServerData();
     setLoginNotice(notice);
     setSession(null);
   }
@@ -67,19 +55,10 @@ function Root() {
         notice={loginNotice}
         onLogin={(s) => {
           setLoginNotice('');
+          runBootstrap(); // one request fills the categories and the first list
           setSession(s);
         }}
       />
-    );
-  }
-  if (checking) return <main className="page center">Зареждане…</main>;
-  if (checkError) {
-    return (
-      <main className="page center">
-        <p className="error" role="alert">{checkError}</p>
-        <button className="primary" onClick={validate}>Опитай пак</button>
-        <button className="link" onClick={() => logout()}>Към вход</button>
-      </main>
     );
   }
   return (

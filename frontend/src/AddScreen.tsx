@@ -1,32 +1,43 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
-import { call } from './api';
+import { ApiError, call, newRequestId } from './api';
 import type { Session } from './auth';
-import { getCategories } from './categories';
-import { CategoryChips, ErrorBox, Loading } from './components';
+import { invalidateDataCaches } from './cache';
+import { getCategories, peekCategories } from './categories';
+import { CategoryChips, ConfirmDialog, ErrorBox, Loading } from './components';
 import { markAction } from './debug';
 import { formatEur, parsePrice, todayLocal } from './format';
 import { errorText } from './messages';
-import { useOnline } from './online';
+import { loadPending, REPLAY_WINDOW_MS, savePending, type PendingExpense } from './pending';
 import { store } from './storage';
 import type { Category } from './types';
 
+// What the strip says when an item could not be sent. Retrying is safe (same requestId).
+function failureText(e: unknown): string {
+  const transport = e instanceof ApiError && ['NETWORK', 'TIMEOUT', 'SERVER_ERROR'].includes(e.code);
+  return transport ? 'Не успях да изпратя. „Опитай пак“ няма да го запише два пъти.' : errorText(e);
+}
+
 // `active` is false while another tab is shown: this screen stays mounted so unsaved
-// fields survive tab switches, and refreshes its categories when it becomes visible again.
+// fields and the pending strip survive tab switches.
 export function AddScreen({ user, active }: { user: Session['user']; active: boolean }) {
   const lastKey = `lastCategory:${user.name}`;
-  const online = useOnline();
-  const [categories, setCategories] = useState<Category[] | null>(null);
+  const [categories, setCategories] = useState<Category[] | null>(peekCategories);
   const [catError, setCatError] = useState('');
-  const [category, setCategory] = useState<string | null>(null);
+  const [category, setCategory] = useState<string | null>(() => {
+    const last = store.get(lastKey);
+    return peekCategories()?.some((c) => c.name === last) ? last : null;
+  });
   const [price, setPrice] = useState('');
   const [item, setItem] = useState('');
   const [date, setDate] = useState(todayLocal);
-  const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [saved, setSaved] = useState(''); // formatted amount of the last save, '' = hidden
+  const [pending, setPending] = useState<PendingExpense[]>(() => loadPending(user.name));
+  const [confirmOld, setConfirmOld] = useState<PendingExpense | null>(null);
   const priceRef = useRef<HTMLInputElement>(null);
-  const savedTimer = useRef<number | undefined>(undefined);
-  const inFlight = useRef(false); // synchronous guard against double submits
+  const sending = useRef(new Set<string>()); // requestIds being sent right now (no double sends)
+  const timers = useRef<number[]>([]);
+  const pendingRef = useRef(pending);
+  pendingRef.current = pending;
 
   const loadCategories = useCallback((keepList = false) => {
     if (!keepList) setCategories(null);
@@ -41,18 +52,68 @@ export function AddScreen({ user, active }: { user: Session['user']; active: boo
           return list.some((c) => c.name === last) ? last : null;
         });
       })
-      .catch((e) => setCatError(errorText(e)));
+      .catch((e) => {
+        // With a (possibly stale) list on screen a failed refresh is not worth an error.
+        if (!keepList) setCatError(errorText(e));
+      });
   }, [lastKey]);
 
   useEffect(() => {
     if (active) loadCategories(true);
   }, [active, loadCategories]);
-  useEffect(() => () => window.clearTimeout(savedTimer.current), []);
 
-  async function save(e: FormEvent) {
+  useEffect(() => savePending(user.name, pending), [pending, user.name]);
+  useEffect(() => () => timers.current.forEach((t) => window.clearTimeout(t)), []);
+
+  const patch = useCallback((rid: string, change: Partial<PendingExpense>) => {
+    setPending((list) => list.map((p) => (p.rid === rid ? { ...p, ...change } : p)));
+  }, []);
+
+  // Sends one pending item in the background. call() retries network failures and timeouts
+  // with the same requestId; only when that is exhausted does the item stay in the strip.
+  const send = useCallback(async (p: PendingExpense) => {
+    if (sending.current.has(p.rid)) return;
+    if (!navigator.onLine) {
+      patch(p.rid, { status: 'failed', error: 'Няма връзка. Ще опитам пак, когато се върне.' });
+      return;
+    }
+    sending.current.add(p.rid);
+    patch(p.rid, { status: 'sending', attempt: 0, error: undefined });
+    try {
+      await call('addExpense', { date: p.date, item: p.item, price: p.price, category: p.category }, {
+        requestId: p.rid,
+        onRetry: (n) => patch(p.rid, { attempt: n }),
+      });
+      invalidateDataCaches();
+      patch(p.rid, { status: 'saved' });
+      timers.current.push(window.setTimeout(() => setPending((l) => l.filter((x) => x.rid !== p.rid)), 2500));
+    } catch (e) {
+      invalidateDataCaches(); // it may have been executed even though we got an error
+      patch(p.rid, { status: 'failed', error: failureText(e) });
+    } finally {
+      sending.current.delete(p.rid);
+    }
+  }, [patch]);
+
+  // Back online: send what could not be sent (same requestIds, so no duplicates).
+  useEffect(() => {
+    const onOnline = () => {
+      pendingRef.current
+        .filter((p) => p.status === 'failed' && Date.now() - p.createdAt < REPLAY_WINDOW_MS)
+        .forEach((p) => void send(p));
+    };
+    window.addEventListener('online', onOnline);
+    return () => window.removeEventListener('online', onOnline);
+  }, [send]);
+
+  function retry(p: PendingExpense) {
+    if (Date.now() - p.createdAt > REPLAY_WINDOW_MS) setConfirmOld(p);
+    else void send(p);
+  }
+
+  // Saving is instant: the form clears and the item goes to the strip; the send happens in the background.
+  function save(e: FormEvent) {
     e.preventDefault();
-    if (busy || inFlight.current) return;
-
     const amount = parsePrice(price);
     const text = item.trim();
     if (amount === null) return setError('Въведи валидна цена (над 0, до 2 цифри след запетаята).');
@@ -60,31 +121,59 @@ export function AddScreen({ user, active }: { user: Session['user']; active: boo
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return setError('Избери дата.');
     if (!category) return setError('Избери категория.');
 
+    const p: PendingExpense = {
+      rid: newRequestId(),
+      date,
+      item: text,
+      price: amount,
+      category,
+      createdAt: Date.now(),
+      status: 'sending',
+      attempt: 0,
+    };
+    store.set(lastKey, category);
     markAction('add:save');
-    inFlight.current = true;
-    setBusy(true);
+    setPending((l) => [p, ...l]);
+    setPrice('');
+    setItem('');
     setError('');
-    setSaved('');
-    try {
-      await call('addExpense', { date, item: text, price: amount, category });
-      store.set(lastKey, category);
-      setPrice('');
-      setItem('');
-      setSaved(formatEur(amount));
-      window.clearTimeout(savedTimer.current);
-      savedTimer.current = window.setTimeout(() => setSaved(''), 3000);
-      priceRef.current?.focus();
-    } catch (err) {
-      // No automatic retry: the request may have been executed even if we got an error.
-      setError(errorText(err, true));
-    } finally {
-      inFlight.current = false;
-      setBusy(false);
-    }
+    priceRef.current?.focus();
+    void send(p);
   }
 
   return (
     <section className="page">
+      {pending.length > 0 && (
+        <ul className="pending" aria-label="Изпращане на разходи">
+          {pending.map((p) => (
+            <li key={p.rid} className={`pending-item ${p.status}`}>
+              <div className="pending-line">
+                <span className="pending-text">
+                  <strong>{p.item}</strong> · {formatEur(p.price)}
+                </span>
+                {p.status === 'sending' && (
+                  <span className="pending-state" role="status">
+                    <span className="spinner" aria-hidden="true" /> {p.attempt > 0 ? 'Опитвам пак…' : 'Записвам…'}
+                  </span>
+                )}
+                {p.status === 'saved' && <span className="pending-state ok" role="status">✓ Записано</span>}
+              </div>
+              {p.status === 'failed' && (
+                <>
+                  <p className="error">{p.error}</p>
+                  <div className="pending-actions">
+                    <button className="secondary" onClick={() => retry(p)}>Опитай пак</button>
+                    <button className="secondary" onClick={() => setPending((l) => l.filter((x) => x.rid !== p.rid))}>
+                      Изтрий
+                    </button>
+                  </div>
+                </>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+
       <form onSubmit={save} noValidate>
         <label htmlFor="price">Цена (€)</label>
         <input
@@ -127,12 +216,24 @@ export function AddScreen({ user, active }: { user: Session['user']; active: boo
         )}
 
         <p className="error" role="alert">{error}</p>
-        <button type="submit" className="primary save" disabled={busy || !online}>
-          {busy ? 'Записвам…' : 'Запази'}
+        <button type="submit" className="primary save">
+          Запази
         </button>
-        {!online && <p className="muted center-text">Няма връзка — записването е изключено.</p>}
-        <p className="saved" role="status">{saved && `Записано ✓ ${saved}`}</p>
       </form>
+
+      {confirmOld && (
+        <ConfirmDialog
+          title="Минало е много време"
+          message="Записът може вече да е в „Списък“, а защитата от двойно записване важи само 30 минути. Провери в „Списък“. Да опитам ли пак?"
+          confirmText="Опитай пак"
+          onCancel={() => setConfirmOld(null)}
+          onConfirm={() => {
+            const p = confirmOld;
+            setConfirmOld(null);
+            void send(p);
+          }}
+        />
+      )}
     </section>
   );
 }

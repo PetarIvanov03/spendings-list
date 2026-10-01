@@ -24,3 +24,17 @@ export const store = {
     }
   },
 };
+
+// Keys (without the app prefix) that start with `prefix`.
+export function storeKeys(prefix: string): string[] {
+  const out: string[] = [];
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith(PREFIX + prefix)) out.push(key.slice(PREFIX.length));
+    }
+  } catch {
+    /* storage unavailable */
+  }
+  return out;
+}

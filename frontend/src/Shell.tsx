@@ -1,5 +1,6 @@
 import { useState, type ReactElement } from 'react';
 import type { Session } from './auth';
+import { useRetrying } from './api';
 import { Sheet } from './components';
 import { markAction } from './debug';
 import { useOnline } from './online';
@@ -30,6 +31,7 @@ export function Shell({ user, onLogout, onPinChanged }: {
   const [menuOpen, setMenuOpen] = useState(false);
   const [pinOpen, setPinOpen] = useState(false);
   const online = useOnline();
+  const retrying = useRetrying();
   const isAdmin = user.role === 'admin'; // cosmetic only: the server enforces roles
 
   const tabs: { id: Tab; label: string }[] = [
@@ -43,7 +45,12 @@ export function Shell({ user, onLogout, onPinChanged }: {
     <div className="shell">
       {!online && (
         <div className="offline" role="status">
-          Няма връзка. Записването е изключено.
+          Няма връзка. Новите разходи се пазят и се изпращат, когато връзката се върне.
+        </div>
+      )}
+      {retrying && online && (
+        <div className="retrying" role="status">
+          Опитвам пак…
         </div>
       )}
       <header className="topbar">

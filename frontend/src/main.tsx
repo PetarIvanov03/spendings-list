@@ -1,7 +1,11 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
+import { runBootstrap } from './bootstrap';
 import './styles.css';
+
+// With a stored session, the one start-up request goes out before React renders.
+runBootstrap();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

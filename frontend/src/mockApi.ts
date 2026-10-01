@@ -1,7 +1,12 @@
 // DEV ONLY: in-memory stand-in for the Apps Script backend (VITE_MOCK=1 npm run dev).
 // Mirrors the CLAUDE.md endpoint table and the server's validation and messages.
-// All PINs here are fake dev data. Add ?mockFail=network (request not executed) or
-// ?mockFail=lost (request executed, response lost) to the URL to test failed writes.
+// All PINs here are fake dev data. URL options for testing failed and slow requests:
+//   ?mockFail=network     mutating requests are never executed, every attempt fails
+//   ?mockFail=networkonce the first attempt of each mutating request fails, the retry works
+//   ?mockFail=lost        mutating requests ARE executed but every response is lost
+//   ?mockFail=lostonce    executed, response lost on the first attempt only; the retry with
+//                         the same requestId gets the stored response (like the real server)
+//   ?mockSlow=1           every call takes 3-8 seconds
 import { ApiError, type Envelope, type ErrorCode } from './api';
 
 interface MUser { name: string; role: 'admin' | 'member'; active: boolean; pin: string; tv: number }
@@ -200,6 +205,15 @@ function handle(action: string, p: Payload, token: string | undefined): unknown 
       return { name: u.name, role: u.role };
     }
 
+    case 'bootstrap': {
+      const u = auth(token);
+      return {
+        me: { name: u.name, role: u.role },
+        categories: handle('categories', {}, token),
+        expenses: handle('listExpenses', p.month === undefined ? {} : { month: p.month }, token),
+      };
+    }
+
     case 'categories':
       auth(token);
       return categories.filter((c) => c.active).sort((a, b) => a.order - b.order).map(({ name, color, order }) => ({ name, color, order }));
@@ -379,19 +393,49 @@ const MUTATING = new Set([
   'renameCategory', 'addUser', 'setUserActive', 'setPin',
 ]);
 
+// Stored responses by user + requestId, like the real server's 30 minute replay cache.
+const replays = new Map<string, { at: number; data: unknown }>();
+const attempts = new Map<string, number>();
+const REQUEST_ID = /^[A-Za-z0-9_-]{8,64}$/;
+
 export async function mockSend(
   action: string,
   payload: object | undefined,
   token: string | undefined,
   debug?: boolean,
+  requestId?: string,
 ): Promise<Envelope> {
-  await new Promise((r) => setTimeout(r, 250));
-  const mode = new URLSearchParams(location.search).get('mockFail');
+  const params = new URLSearchParams(location.search);
+  await new Promise((r) => setTimeout(r, params.get('mockSlow') === '1' ? 3000 + Math.random() * 5000 : 250));
+  const mode = params.get('mockFail');
   const mutating = MUTATING.has(action);
-  if (mutating && mode === 'network') throw new ApiError('NETWORK', 'mock: request not executed');
+
+  let attemptNo = 0;
+  if (mutating && requestId) {
+    attemptNo = (attempts.get(requestId) ?? 0) + 1;
+    attempts.set(requestId, attemptNo);
+  }
+  if (mutating && (mode === 'network' || (mode === 'networkonce' && attemptNo === 1))) {
+    throw new ApiError('NETWORK', 'mock: request not executed');
+  }
+
   try {
-    const data = handle(action, (payload ?? {}) as Payload, token);
-    if (mutating && mode === 'lost') throw new ApiError('NETWORK', 'mock: executed, response lost');
+    if (requestId !== undefined && !REQUEST_ID.test(requestId)) fail('BAD_REQUEST', 'requestId must be 8-64 characters');
+    const who = /^mock:(.+):\d+$/.exec(token ?? '')?.[1];
+    const replayKey = mutating && requestId && who ? `${who}:${requestId}` : null;
+    const stored = replayKey ? replays.get(replayKey) : undefined;
+
+    let data: unknown;
+    if (stored && Date.now() - stored.at < 30 * 60 * 1000) {
+      data = stored.data; // replay: not executed again
+    } else {
+      data = handle(action, (payload ?? {}) as Payload, token);
+      if (replayKey) replays.set(replayKey, { at: Date.now(), data: JSON.parse(JSON.stringify(data ?? null)) });
+    }
+
+    if (mutating && (mode === 'lost' || (mode === 'lostonce' && attemptNo === 1))) {
+      throw new ApiError('NETWORK', 'mock: executed, response lost');
+    }
     return withTiming({ ok: true, data: JSON.parse(JSON.stringify(data ?? null)) }, debug);
   } catch (e) {
     if (e instanceof ApiError && e.code !== 'NETWORK') return withTiming({ ok: false, error: { code: e.code, message: e.message } }, debug);

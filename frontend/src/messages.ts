@@ -44,8 +44,10 @@ export function errorText(e: unknown, uncertainWrite = false): string {
     case 'BAD_REQUEST':
       return badRequestText(e.message);
     case 'NETWORK':
+    case 'TIMEOUT':
     case 'SERVER_ERROR':
       if (uncertainWrite) return 'Не съм сигурен дали е записано. Провери в „Списък“, преди да опиташ пак.';
+      if (e.code === 'TIMEOUT') return 'Сървърът не отговори навреме (30 секунди). Опитай пак.';
       return e.code === 'NETWORK' ? 'Няма връзка със сървъра. Опитай пак.' : 'Грешка в сървъра. Опитай пак.';
   }
 }

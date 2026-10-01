@@ -103,6 +103,22 @@ export function Empty({ children }: { children: ReactNode }) {
   return <p className="state muted">{children}</p>;
 }
 
+// "обновявам…" while cached data is shown and a refresh is running. Keeps its height.
+export function Refreshing({ show }: { show: boolean }) {
+  return <div className="refresh-line" role="status">{show ? 'обновявам…' : ''}</div>;
+}
+
+// A refresh failed but the previous data is still shown.
+export function StaleNotice({ show, onRetry }: { show: boolean; onRetry: () => void }) {
+  if (!show) return null;
+  return (
+    <div className="notice" role="status">
+      <span>Не успях да обновя. Показвам последните данни.</span>
+      <button className="link" onClick={onRetry}>Опитай пак</button>
+    </div>
+  );
+}
+
 export function Loading() {
   return <p className="state muted">Зареждане…</p>;
 }

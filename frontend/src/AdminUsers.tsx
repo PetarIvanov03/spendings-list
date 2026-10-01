@@ -29,7 +29,7 @@ export function AdminUsers({ me }: { me: Session['user'] }) {
   return (
     <div>
       <Notice text={notice} onDismiss={() => setNotice('')} />
-      {users.error ? (
+      {users.error && users.data === null ? (
         <ErrorBox message={users.error} onRetry={users.refetch} />
       ) : users.data === null ? (
         <Loading />
