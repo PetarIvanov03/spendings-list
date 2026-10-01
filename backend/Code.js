@@ -32,7 +32,38 @@ var ACTIONS = {
   me: function (payload, user) {
     return { name: user.name, role: user.role };
   },
+  categories: function () {
+    return categories();
+  },
+  addExpense: function (payload, user) {
+    return addExpense(payload, user);
+  },
+  listExpenses: function (payload, user) {
+    return listExpenses(payload, user);
+  },
+  updateExpense: function (payload, user) {
+    return updateExpense(payload, user);
+  },
+  deleteExpense: function (payload, user) {
+    return deleteExpense(payload, user);
+  },
 };
+
+// Runs fn under the script lock (all sheet writes go through this).
+function withLock(fn) {
+  var lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(10000);
+  } catch (err) {
+    throw new ApiError('SERVER_ERROR', 'Server busy, try again');
+  }
+  try {
+    return fn();
+  } finally {
+    SpreadsheetApp.flush();
+    lock.releaseLock();
+  }
+}
 
 function doGet() {
   return jsonOk('pong');
