@@ -211,15 +211,22 @@ async function listExpenses(p: { month?: string; limit?: number; user?: string }
   return mapExpenses(data as ExpenseRow[]);
 }
 
-async function addExpense(p: { date: string; item: string; price: number; category: string }): Promise<Expense> {
+// clientId makes the insert idempotent: expenses.client_id is unique, so a repeat of the same
+// expense (retry, resend after reconnect, reload) fails with 23505. That means "already saved":
+// the existing row is fetched and returned like a normal insert. client_id never leaves here.
+async function addExpense(p: { date: string; item: string; price: number; category: string; clientId: string }): Promise<Expense> {
   await me();
   const { data, error } = await db()
     .from('expenses')
-    .insert({ category_id: await categoryId(p.category), amount: p.price, spent_on: p.date, description: p.item })
+    .insert({ category_id: await categoryId(p.category), amount: p.price, spent_on: p.date, description: p.item, client_id: p.clientId })
     .select(EXPENSE_COLS)
     .single();
-  if (error) fail(error);
-  return (await mapExpenses([data as ExpenseRow]))[0];
+  if (!error) return (await mapExpenses([data as ExpenseRow]))[0];
+  if (error.code !== '23505' || !/client_id/.test(error.message ?? '')) fail(error);
+  const existing = await db().from('expenses').select(EXPENSE_COLS).eq('client_id', p.clientId).maybeSingle();
+  if (existing.error) fail(existing.error);
+  if (!existing.data) fail(error);
+  return (await mapExpenses([existing.data as ExpenseRow]))[0];
 }
 
 async function updateExpense(p: { id: string; date?: string; item?: string; price?: number; category?: string }): Promise<Expense> {

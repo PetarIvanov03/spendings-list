@@ -25,9 +25,8 @@ export class ApiError extends Error {
 }
 
 const TIMEOUT_MS = 30_000;
-// Retried after a transport failure. addExpense, login and changePin are never retried:
-// without an idempotency key a second attempt could record the expense twice.
-const NO_RETRY = new Set(['addExpense', 'login', 'changePin']);
+// Never retried automatically. addExpense IS retried: its client_id makes a repeat harmless.
+const NO_RETRY = new Set(['login', 'changePin']);
 const MUTATING = new Set([
   'addExpense', 'updateExpense', 'deleteExpense', 'changePin',
   'addCategory', 'updateCategory', 'renameCategory', 'restoreExpense', 'purgeExpense',
@@ -42,9 +41,9 @@ export function setUnauthorizedHandler(fn: () => void): void {
   onUnauthorized = fn;
 }
 
-export function newRequestId(): string {
-  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID();
-  return 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 12);
+// The client_id of a new expense: generated once, reused by every send of that expense.
+export function newClientId(): string {
+  return crypto.randomUUID();
 }
 
 // ---- "retrying" indicator: how many calls are currently waiting to retry ----
@@ -96,8 +95,8 @@ export interface CallOptions {
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // The one function that talks to the backend.
-// - updateExpense and deleteExpense (idempotent) retry up to 3 times after a network error or
-//   timeout (2 s, 4 s, 8 s). addExpense, changePin and login are never retried.
+// - Writes (all idempotent) retry up to 3 times after a network error or
+//   timeout (2 s, 4 s, 8 s), and so does addExpense (same client_id). changePin and login never.
 // - Reads retry up to 2 times, only when there was no usable response.
 export async function call<T>(action: string, payload?: object, options: CallOptions = {}): Promise<T> {
   const mutating = MUTATING.has(action);
