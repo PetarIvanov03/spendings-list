@@ -5,3 +5,11 @@ dist/
 .DS_Store
 # visual review screenshots (before/after), not part of the repo
 design-review/
+# local env files (the example file stays tracked), data exports, logs
+.env.*
+!.env.example
+*.csv
+*.xlsx
+.clasp.json
+.clasprc.json
+*.log
