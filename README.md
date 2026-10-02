@@ -14,6 +14,10 @@ npm run dev
 
 Set `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` in `frontend/src/config.ts` (the publishable key is safe to commit; never use a secret / service_role key).
 
+## База данни
+
+Схемата е в `supabase/schema.sql` (таблици, RLS политики, функции, справка). Пуска се само върху ПРАЗЕН Supabase проект (SQL Editor). Преди това в Authentication се изключват "Allow new users to sign up" и "Confirm email". Стъпките след пускането (потребители, админ) са в коментарите най-горе във файла.
+
 ## Checks
 
 ```

@@ -13,3 +13,7 @@ design-review/
 .clasp.json
 .clasprc.json
 *.log
+
+# real expense data for importing into the database
+supabase/*import*.sql
+supabase/*.csv
