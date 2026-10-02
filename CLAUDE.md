@@ -7,7 +7,7 @@ Priorities: **dead simple daily use** (add an expense in ~3 taps), low maintenan
 
 - **Frontend**: static site on **GitHub Pages**. Vite + React + TypeScript, plain CSS (no UI kit). No router library: tab state in React state. Vite `base`: `/spendings-list/`.
 - **Backend**: **Supabase** (Postgres + Auth + Row Level Security). The browser talks to it directly with `@supabase/supabase-js` and the **publishable** key. There is no server code of our own: security is RLS.
-- **Legacy**: `/backend` is the old Google Apps Script backend. It is no longer used by the frontend; delete it only after the owner confirms the Supabase version works.
+- **Legacy**: the old Google Apps Script backend was removed from the tree. It is available at the git tag `pre-supabase`.
 - The repo is **public**. Never commit a secret / `service_role` key, PINs or data exports. `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` live in `frontend/src/config.ts` (both safe to publish).
 
 ## Database (Supabase; schema already exists, do not change it without asking)
