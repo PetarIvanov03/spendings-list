@@ -28,7 +28,7 @@ export function loadPending(user: string): PendingExpense[] {
   try {
     return (JSON.parse(raw) as PendingExpense[])
       .filter((p) => p && typeof p.rid === 'string' && typeof p.price === 'number')
-      .map((p) => ({ ...p, status: 'failed' as const, attempt: 0, error: 'Прекъснато. „Опитай пак“ няма да го запише два пъти.' }));
+      .map((p) => ({ ...p, status: 'failed' as const, attempt: 0, error: 'Прекъснато. Провери в „Списък“, преди да опиташ пак.' }));
   } catch {
     return [];
   }

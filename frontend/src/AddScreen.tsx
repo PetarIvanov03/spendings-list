@@ -70,8 +70,8 @@ export function AddScreen({ user, active }: { user: Session['user']; active: boo
     setPending((list) => list.map((p) => (p.rid === rid ? { ...p, ...change } : p)));
   }, []);
 
-  // Sends one pending item in the background. call() retries network failures and timeouts
-  // with the same requestId; only when that is exhausted does the item stay in the strip.
+  // Sends one pending item in the background. addExpense is not retried automatically:
+  // a failed item stays in the strip for the user to retry.
   const send = useCallback(async (p: PendingExpense) => {
     if (sending.current.has(p.rid)) return;
     if (!navigator.onLine) {
@@ -81,10 +81,7 @@ export function AddScreen({ user, active }: { user: Session['user']; active: boo
     sending.current.add(p.rid);
     patch(p.rid, { status: 'sending', attempt: 0, error: undefined });
     try {
-      await call('addExpense', { date: p.date, item: p.item, price: p.price, category: p.category }, {
-        requestId: p.rid,
-        onRetry: (n) => patch(p.rid, { attempt: n }),
-      });
+      await call('addExpense', { date: p.date, item: p.item, price: p.price, category: p.category });
       invalidateDataCaches();
       patch(p.rid, { status: 'saved' });
       timers.current.push(window.setTimeout(() => setPending((l) => l.filter((x) => x.rid !== p.rid)), 2500));
@@ -96,7 +93,8 @@ export function AddScreen({ user, active }: { user: Session['user']; active: boo
     }
   }, [patch]);
 
-  // Back online: send what could not be sent (same requestIds, so no duplicates).
+  // Back online: send what could not be sent. Without an idempotency key an item whose
+  // first attempt did reach the server could be recorded twice (rare: needs a lost response).
   useEffect(() => {
     const onOnline = () => {
       pendingRef.current

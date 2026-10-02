@@ -30,4 +30,5 @@ export interface SummaryData {
   total: number;
   byCategory: { category: string; total: number }[];
   byUser?: { user: string; total: number }[]; // adminSummary only
+  byUserCategory?: { user: string; byCategory: { category: string; total: number }[] }[]; // adminSummary only
 }
