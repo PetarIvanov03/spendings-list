@@ -6,7 +6,7 @@ export type WriteResult =
   | { ok: true }
   | { ok: false; code: string; message: string; uncertain: boolean };
 
-// Runs one mutating call (call() already retried it with the same requestId). `uncertain`
+// Runs one mutating call (call() already retried it where that is safe). `uncertain`
 // means that even after the retries we do not know whether the server executed it
 // (NETWORK / TIMEOUT / SERVER_ERROR): the caller must refetch so the user sees the truth.
 export async function runWrite(fn: () => Promise<unknown>): Promise<WriteResult> {

@@ -55,8 +55,6 @@ export const IconCalendar = (p: P) => <Icon {...p}><path d="M4 7a2 2 0 0 1 2-2h1
 export const IconAlert = (p: P) => <Icon {...p}><path d="M12 8v5M12 16.5h.01M10.3 3.9L2.4 17.5A2 2 0 0 0 4.1 20.5h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" /></Icon>;
 export const IconWifiOff = (p: P) => <Icon {...p}><path d="M3 3l18 18M8.5 16.4a5 5 0 0 1 7 0M5 12.9a10 10 0 0 1 4.2-2.3M12 20h.01M19 12.9a10 10 0 0 0-3.7-2.2M2 9a15 15 0 0 1 5-3" /></Icon>;
 export const IconInbox = (p: P) => <Icon {...p}><path d="M3 13l2.5-7.2A2 2 0 0 1 7.4 4.5h9.2a2 2 0 0 1 1.9 1.3L21 13M3 13v5a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5M3 13h5l1 2.5h6l1-2.5h5" /></Icon>;
-export const IconUser = (p: P) => <Icon {...p}><path d="M5 20a7 7 0 0 1 14 0M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" /></Icon>;
-export const IconLock = (p: P) => <Icon {...p}><path d="M6 11V8a6 6 0 0 1 12 0v3M5 11h14a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1z" /></Icon>;
 export const IconLogout = (p: P) => <Icon {...p}><path d="M9 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h3M16 8l4 4-4 4M20 12H9" /></Icon>;
 export const IconEdit = (p: P) => <Icon {...p}><path d="M4 20h4L19.5 8.5a2.1 2.1 0 0 0-3-3L5 17zM14.5 7.5l3 3" /></Icon>;
 export const IconKey = (p: P) => <Icon {...p}><path d="M15 3.5a5.5 5.5 0 1 1-1.5 10.8L11 17H8.5v2.5H6V22H3v-3l8.2-8.2A5.5 5.5 0 0 1 15 3.5zM16.5 8h.01" /></Icon>;

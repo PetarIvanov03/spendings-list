@@ -43,7 +43,7 @@ function fail(e: DbError): never {
 }
 
 // Typed name -> email local part: trim, collapse spaces, NFC, lower case.
-export function normalizeName(name: string): string {
+function normalizeName(name: string): string {
   return name.trim().replace(/\s+/g, ' ').normalize('NFC').toLowerCase();
 }
 const emailFor = (name: string) => `${normalizeName(name)}@spendings.app`;
@@ -492,7 +492,7 @@ export async function backendSend(action: string, payload: unknown): Promise<unk
     case 'purgeExpense': return purgeExpense(p);
     case 'changePin': return changePin(p);
     default:
-      // addUser, setPin and setUserActive need a secret key: not possible from the browser.
+      // Not available from the browser: creating users and setting PINs need a secret key.
       throw new ApiError('BAD_REQUEST', `action not supported: ${action}`);
   }
 }

@@ -1244,37 +1244,6 @@ input[type='color'] {
   overflow-wrap: anywhere;
 }
 
-.swatches {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
-  padding: var(--sp-1) 0;
-}
-
-.swatch {
-  width: 44px;
-  min-width: 44px;
-  height: 44px;
-  min-height: 44px;
-  padding: 0;
-  border: 2px solid var(--line-strong);
-  border-radius: 50%;
-}
-
-.swatch.on {
-  border-color: var(--text);
-  box-shadow: 0 0 0 2px var(--surface-1), 0 0 0 4px var(--text);
-}
-
-.color-input {
-  width: 44px;
-  min-height: 44px;
-  height: 44px;
-  padding: 2px;
-  border-radius: 50%;
-}
-
 /* =====================================================================
    PIN pad
    ===================================================================== */

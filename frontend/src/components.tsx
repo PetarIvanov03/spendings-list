@@ -254,31 +254,3 @@ export function CategoryTag({ name, colors }: { name: string; colors: Map<string
     </span>
   );
 }
-
-const SWATCHES = ['#d9ead3', '#fce5cd', '#cfe2f3', '#fff2cc', '#ead1dc', '#d9d2e9', '#f4cccc', '#d0e0e3'];
-
-export function ColorPicker({ value, onChange }: { value: string; onChange: (c: string) => void }) {
-  const same = (c: string) => c.toLowerCase() === value.toLowerCase();
-  return (
-    <div className="swatches">
-      {SWATCHES.map((c) => (
-        <button
-          key={c}
-          type="button"
-          className={same(c) ? 'swatch on' : 'swatch'}
-          style={{ background: c }}
-          aria-label={`Цвят ${c}`}
-          aria-pressed={same(c)}
-          onClick={() => onChange(c)}
-        />
-      ))}
-      <input
-        type="color"
-        className="color-input"
-        aria-label="Избери друг цвят"
-        value={/^#[0-9a-f]{6}$/i.test(value) ? value : '#d9ead3'}
-        onChange={(e) => onChange(e.target.value)}
-      />
-    </div>
-  );
-}

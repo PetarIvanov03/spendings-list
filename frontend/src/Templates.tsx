@@ -16,7 +16,7 @@ export interface TemplateDraft {
   amount: string; // as typed; '' = no amount
 }
 
-export const draftFromTemplate = (t: Template): TemplateDraft => ({
+const draftFromTemplate = (t: Template): TemplateDraft => ({
   id: t.id,
   title: t.title,
   category: t.categoryActive ? t.category : null,
