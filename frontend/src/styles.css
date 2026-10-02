@@ -37,9 +37,10 @@
 
   /* motion */
   --dur-fast: 120ms;
-  --dur-base: 200ms;
+  --dur-base: 220ms;
   --dur-slow: 320ms;
-  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
 
   /* sizes */
   --tap: 48px;
@@ -209,7 +210,8 @@ button {
 }
 
 button:active:not(:disabled) {
-  transform: scale(0.98);
+  transform: scale(0.97);
+  opacity: 0.9;
 }
 
 button:disabled {
@@ -230,9 +232,11 @@ a:focus-visible {
   color: var(--on-accent);
 }
 
-.primary:hover:not(:disabled) {
-  background: var(--accent-hover);
-  border-color: var(--accent-hover);
+@media (hover: hover) {
+  .primary:hover:not(:disabled) {
+    background: var(--accent-hover);
+    border-color: var(--accent-hover);
+  }
 }
 
 .secondary {
@@ -241,8 +245,10 @@ a:focus-visible {
   color: var(--text);
 }
 
-.secondary:hover:not(:disabled) {
-  background: var(--surface-2);
+@media (hover: hover) {
+  .secondary:hover:not(:disabled) {
+    background: var(--surface-2);
+  }
 }
 
 .danger {
@@ -257,8 +263,10 @@ a:focus-visible {
   color: var(--danger);
 }
 
-.danger-outline:hover:not(:disabled) {
-  background: var(--danger-soft);
+@media (hover: hover) {
+  .danger-outline:hover:not(:disabled) {
+    background: var(--danger-soft);
+  }
 }
 
 .ghost,
@@ -269,9 +277,11 @@ a:focus-visible {
   color: var(--accent);
 }
 
-.ghost:hover:not(:disabled),
-.link:hover:not(:disabled) {
-  background: var(--accent-soft);
+@media (hover: hover) {
+  .ghost:hover:not(:disabled),
+  .link:hover:not(:disabled) {
+    background: var(--accent-soft);
+  }
 }
 
 .icon-btn {
@@ -286,8 +296,10 @@ a:focus-visible {
   color: var(--text-2);
 }
 
-.icon-btn:hover:not(:disabled) {
-  background: var(--surface-2);
+@media (hover: hover) {
+  .icon-btn:hover:not(:disabled) {
+    background: var(--surface-2);
+  }
 }
 
 .wide {
@@ -323,7 +335,8 @@ input {
   background: var(--field);
   color: var(--text);
   font: inherit; /* 16px: no zoom on iOS */
-  transition: border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
+  transition: border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out),
+    background-color var(--dur-fast) var(--ease-out);
 }
 
 input::placeholder {
@@ -535,7 +548,7 @@ input[type='color'] {
   align-items: flex-end;
   justify-content: center;
   background: var(--overlay);
-  animation: fade-in var(--dur-base) ease both;
+  animation: fade-in var(--dur-base) var(--ease-out) both;
 }
 
 .overlay-top {
@@ -884,8 +897,10 @@ input[type='color'] {
   font-weight: 400;
 }
 
-.row:hover {
-  background: var(--surface-2);
+@media (hover: hover) {
+  .row:hover {
+    background: var(--surface-2);
+  }
 }
 
 .row-main {
@@ -1269,8 +1284,10 @@ input[type='color'] {
   font-weight: 600;
 }
 
-.key:hover:not(:disabled) {
-  background: var(--surface-2);
+@media (hover: hover) {
+  .key:hover:not(:disabled) {
+    background: var(--surface-2);
+  }
 }
 
 .key-ok {
@@ -1281,8 +1298,10 @@ input[type='color'] {
   font-weight: 700;
 }
 
-.key-ok:hover:not(:disabled) {
-  background: var(--accent-hover);
+@media (hover: hover) {
+  .key-ok:hover:not(:disabled) {
+    background: var(--accent-hover);
+  }
 }
 
 /* =====================================================================
@@ -1411,12 +1430,98 @@ input[type='color'] {
   }
 }
 
+/* full-width rows: pressed state without scaling the whole row */
+.row:active:not(:disabled) {
+  transform: none;
+  opacity: 1;
+  background: var(--surface-2);
+}
+
+/* list rows: soft entrance, short stagger (first 8 only, 25ms apart) */
+.rows > li,
+.admin-list > li,
+.bars > li,
+.pending-item {
+  animation: row-in var(--dur-base) var(--ease-out) backwards;
+}
+
+.rows > li:nth-child(2), .admin-list > li:nth-child(2), .bars > li:nth-child(2) { animation-delay: 25ms; }
+.rows > li:nth-child(3), .admin-list > li:nth-child(3), .bars > li:nth-child(3) { animation-delay: 50ms; }
+.rows > li:nth-child(4), .admin-list > li:nth-child(4), .bars > li:nth-child(4) { animation-delay: 75ms; }
+.rows > li:nth-child(5), .admin-list > li:nth-child(5), .bars > li:nth-child(5) { animation-delay: 100ms; }
+.rows > li:nth-child(6), .admin-list > li:nth-child(6), .bars > li:nth-child(6) { animation-delay: 125ms; }
+.rows > li:nth-child(7), .admin-list > li:nth-child(7), .bars > li:nth-child(7) { animation-delay: 150ms; }
+.rows > li:nth-child(8), .admin-list > li:nth-child(8), .bars > li:nth-child(8) { animation-delay: 175ms; }
+
+/* messages appear softly (an error text appearing in an empty paragraph fades in too) */
+.notice,
+.notice-ok {
+  animation: row-in var(--dur-base) var(--ease-out) backwards;
+}
+
+.error:not(:empty) {
+  animation: fade-in var(--dur-base) var(--ease-out) backwards;
+}
+
+/* leaving: sheets, dialogs and toasts play these before they are removed (see useExit / toast.tsx) */
+.overlay.closing {
+  pointer-events: none;
+  animation: fade-out var(--dur-base) var(--ease-in-out) forwards;
+}
+
+.overlay.closing .sheet {
+  animation: sheet-out var(--dur-base) var(--ease-in-out) forwards;
+}
+
+.overlay.closing .confirm {
+  animation: pop-out var(--dur-base) var(--ease-in-out) forwards;
+}
+
+.toast.leaving {
+  animation: toast-out var(--dur-base) var(--ease-in-out) forwards;
+}
+
+@keyframes row-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes sheet-out {
+  to {
+    transform: translateY(32px);
+    opacity: 0.6;
+  }
+}
+
+@keyframes pop-out {
+  to {
+    transform: scale(0.96);
+    opacity: 0;
+  }
+}
+
+@keyframes toast-out {
+  to {
+    transform: translateY(-12px);
+    opacity: 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     animation-duration: 0.001ms !important;
     animation-iteration-count: 1 !important;
+    animation-delay: 0s !important; /* no stagger: a delay would keep rows invisible */
     transition-duration: 0.001ms !important;
   }
 

@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { IconAlert, IconCheck, IconChevronLeft, IconChevronRight, IconClose, IconInbox } from './icons';
 import { currentMonth, monthLabel, NEUTRAL_COLOR, shiftMonth, textColorFor } from './format';
 import type { Category } from './types';
@@ -24,9 +24,31 @@ export function MonthSwitcher({ month, onChange }: { month: string; onChange: (m
 }
 
 // Bottom sheet modal. Escape or a tap on the backdrop closes it.
-export function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+// A user-initiated close plays the leaving animation first (class "closing" on the overlay),
+// then calls onClose after --dur-base. Reduced motion, or an unmount in the meantime, skips it.
+function useExit(onClose: () => void) {
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
+  const [closing, setClosing] = useState(false);
+  const started = useRef(false);
+  const timer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(timer.current), []);
+  function requestClose() {
+    if (started.current) return;
+    started.current = true;
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const ms = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--dur-base')) || 220;
+    if (reduced) return closeRef.current();
+    setClosing(true);
+    timer.current = window.setTimeout(() => closeRef.current(), ms);
+  }
+  return { closing, requestClose };
+}
+
+export function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+  const { closing, requestClose } = useExit(onClose);
+  const closeRef = useRef(requestClose);
+  closeRef.current = requestClose;
   const panel = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -45,12 +67,12 @@ export function Sheet({ title, onClose, children }: { title: string; onClose: ()
   }, []);
 
   return (
-    <div className="overlay" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+    <div className={closing ? 'overlay closing' : 'overlay'} onMouseDown={(e) => e.target === e.currentTarget && requestClose()}>
       <section className="sheet" role="dialog" aria-modal="true" aria-label={title} ref={panel} tabIndex={-1}>
         <div className="sheet-grip" aria-hidden="true" />
         <header className="sheet-head">
           <h2>{title}</h2>
-          <button className="icon-btn" aria-label="Затвори" onClick={onClose}>
+          <button className="icon-btn" aria-label="Затвори" onClick={requestClose}>
             <IconClose />
           </button>
         </header>
@@ -69,18 +91,19 @@ export function ConfirmDialog(props: {
   onConfirm: () => void;
   onCancel: () => void;
 }) {
+  const { closing, requestClose } = useExit(props.onCancel);
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && props.onCancel();
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && requestClose();
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   });
   return (
-    <div className="overlay overlay-top" onMouseDown={(e) => e.target === e.currentTarget && props.onCancel()}>
+    <div className={closing ? 'overlay overlay-top closing' : 'overlay overlay-top'} onMouseDown={(e) => e.target === e.currentTarget && requestClose()}>
       <div className="confirm" role="alertdialog" aria-modal="true" aria-label={props.title}>
         <h2>{props.title}</h2>
         <p>{props.message}</p>
         <div className="confirm-actions">
-          <button className="secondary" autoFocus onClick={props.onCancel}>
+          <button className="secondary" autoFocus onClick={requestClose}>
             Отказ
           </button>
           <button className={props.danger ? 'danger' : 'primary'} disabled={props.busy} onClick={props.onConfirm}>
