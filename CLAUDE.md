@@ -27,7 +27,7 @@ RLS: members see and change only their own expenses; the admin reads all and man
 - Wrong name and wrong PIN give the same error ("Грешно име или ПИН").
 - `changePin`: first `signInWithPassword` with the old PIN (wrong → `FORBIDDEN`), then `auth.updateUser({ password })`, then the app returns to login.
 - Creating users, setting someone else's PIN and activating/deactivating users need the secret key, so they are NOT possible from the browser. Do those in the Supabase dashboard. The "people" screen (`AdminUsers.tsx`) exists but is not shown.
-- `localStorage` `session` only mirrors `{name, role}` for the UI (token field is a placeholder); the real session is supabase-js's.
+- `localStorage` `session` only mirrors `{user: {name, role}}` for the UI; the real session is supabase-js's (an expired one shows as `UNAUTHORIZED` on the next request).
 
 ## Idle logout (`idle.ts`)
 

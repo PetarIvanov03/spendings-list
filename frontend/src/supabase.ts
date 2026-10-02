@@ -443,8 +443,7 @@ async function login(p: { user: string; pin: string }) {
     throw new ApiError('UNAUTHORIZED', 'Invalid credentials');
   }
   const who = await me();
-  // supabase-js keeps (and refreshes) the real session; this one only drives the UI.
-  return { token: 'supabase', expiresAt: Math.floor(Date.now() / 1000) + 90 * 86400, user: { name: who.name, role: who.role } };
+  return { user: { name: who.name, role: who.role } };
 }
 
 async function changePin(p: { oldPin: string; newPin: string }): Promise<Record<string, never>> {
@@ -462,7 +461,6 @@ export async function backendSend(action: string, payload: unknown): Promise<unk
   const p = (payload ?? {}) as never; // shape is the caller's contract (see types.ts)
   switch (action) {
     case 'login': return login(p);
-    case 'me': { const w = await me(); return { name: w.name, role: w.role }; }
     case 'bootstrap': {
       const w = await me();
       const [cats, expenses] = await Promise.all([categories(), listExpenses({ month: (p as { month?: string }).month })]);
