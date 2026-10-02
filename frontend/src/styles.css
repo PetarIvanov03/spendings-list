@@ -167,17 +167,12 @@ h2 {
 .big-total strong,
 .day-head span:last-child,
 .pending-text,
-.amount-input,
 .amount-currency {
   font-variant-numeric: tabular-nums;
 }
 
 .muted {
   color: var(--text-3);
-}
-
-.center-text {
-  text-align: center;
 }
 
 .sr-only {
@@ -358,15 +353,6 @@ input[type='color'] {
   max-width: var(--column);
   margin: 0 auto;
   padding: var(--sp-4) var(--sp-4) var(--sp-6);
-}
-
-.page.center {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--sp-3);
-  padding-top: 20vh;
-  text-align: center;
 }
 
 .shell {
@@ -665,11 +651,6 @@ input[type='color'] {
 .badge-admin {
   background: var(--accent-soft);
   color: var(--accent);
-}
-
-.badge-ok {
-  background: var(--success-soft);
-  color: var(--success);
 }
 
 .badge-off {
