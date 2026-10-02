@@ -1,5 +1,5 @@
 // Minimal service worker: caches only the static app shell, never the API.
-// - Cross-origin requests (script.google.com) and non-GET requests are never touched.
+// - Cross-origin requests (Supabase) and non-GET requests are never touched.
 // - Navigations: network first, cached shell as the offline fallback.
 // - Hashed build assets (/assets/*): cache first (their names change with every build).
 // The cache name carries the build id passed as ?v=..., so every release gets a fresh cache

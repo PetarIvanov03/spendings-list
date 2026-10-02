@@ -9,7 +9,6 @@ export type ErrorCode =
   | 'BAD_REQUEST'
   | 'UNAUTHORIZED'
   | 'FORBIDDEN'
-  | 'LOCKED'
   | 'NOT_FOUND'
   | 'CONFLICT'
   | 'SERVER_ERROR'

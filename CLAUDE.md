@@ -7,7 +7,7 @@ Priorities: **dead simple daily use** (add an expense in ~3 taps), low maintenan
 
 - **Frontend**: static site on **GitHub Pages**. Vite + React + TypeScript, plain CSS (no UI kit). No router library: tab state in React state. Vite `base`: `/spendings-list/`.
 - **Backend**: **Supabase** (Postgres + Auth + Row Level Security). The browser talks to it directly with `@supabase/supabase-js` and the **publishable** key. There is no server code of our own: security is RLS.
-- **Legacy**: `/backend` is the old Google Apps Script backend. It is no longer used by the frontend; delete it only after the owner confirms the Supabase version works.
+- **Legacy**: the old Google Apps Script backend was removed from the tree. It is available at the git tag `pre-supabase`.
 - The repo is **public**. Never commit a secret / `service_role` key, PINs or data exports. `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` live in `frontend/src/config.ts` (both safe to publish).
 
 ## Database (Supabase; schema already exists, do not change it without asking)
@@ -27,7 +27,7 @@ RLS: members see and change only their own expenses; the admin reads all and man
 - Wrong name and wrong PIN give the same error ("Грешно име или ПИН").
 - `changePin`: first `signInWithPassword` with the old PIN (wrong → `FORBIDDEN`), then `auth.updateUser({ password })`, then the app returns to login.
 - Creating users, setting someone else's PIN and activating/deactivating users need the secret key, so they are NOT possible from the browser. Do those in the Supabase dashboard. The "people" screen (`AdminUsers.tsx`) exists but is not shown.
-- `localStorage` `session` only mirrors `{name, role}` for the UI (token field is a placeholder); the real session is supabase-js's.
+- `localStorage` `session` only mirrors `{user: {name, role}}` for the UI; the real session is supabase-js's (an expired one shows as `UNAUTHORIZED` on the next request).
 
 ## Idle logout (`idle.ts`)
 

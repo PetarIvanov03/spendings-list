@@ -13,7 +13,7 @@ interface BootstrapData {
 }
 
 // One request on app start (and right after login) instead of me + categories + list:
-// it validates the token, and fills the categories and the current month's list caches.
+// it validates the session, and fills the categories and the current month's list caches.
 // Screens that open meanwhile wait for it (see expectCategories) rather than ask again.
 export function runBootstrap(): void {
   if (!loadSession()) return;

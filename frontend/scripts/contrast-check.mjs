@@ -73,9 +73,8 @@ const chipText = (hex) => {
   return '#000000';
 };
 const colors = new Set([
-  ...(read('../src/components.tsx').match(/SWATCHES = \[([^\]]+)\]/)[1].match(/#[0-9a-fA-F]{6}/g) ?? []),
+  ...(read('../src/supabase.ts').match(/PALETTE = \[([^\]]+)\]/)[1].match(/#[0-9a-fA-F]{6}/g) ?? []), // category colors
   ...(read('../src/format.ts').match(/NEUTRAL_COLOR = '(#[0-9a-fA-F]{6})'/) ?? []).slice(1),
-  ...(read('../src/mockApi.ts').match(/color: '(#[0-9a-fA-F]{6})'/g) ?? []).map((m) => m.slice(8, 15)),
   '#000000', '#ffffff', '#777777', '#767676', '#808080', '#0000ff', '#ff0000', '#00aa00', '#ff8800', // worst cases
 ]);
 let worst = { r: 99, c: '' };

@@ -38,7 +38,7 @@ export function AddScreen({ user, active }: { user: Session['user']; active: boo
   const [manageOpen, setManageOpen] = useState(false);
   const templates = useFetch(() => call<Template[]>('templates'), [], { name: 'templates', match: '' });
   const priceRef = useRef<HTMLInputElement>(null);
-  const sending = useRef(new Set<string>()); // requestIds being sent right now (no double sends)
+  const sending = useRef(new Set<string>()); // client_ids being sent right now (no double sends)
   const timers = useRef<number[]>([]);
   const pendingRef = useRef(pending);
   pendingRef.current = pending;

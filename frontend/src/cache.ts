@@ -50,7 +50,7 @@ export function dropCached(name: string): void {
 }
 
 // Keeps the data (it is still shown at once) but forces the next view to refresh it.
-export function markStale(name: string): void {
+function markStale(name: string): void {
   const key = keyFor(name);
   const entry = readEntry(key);
   if (!entry) return;
