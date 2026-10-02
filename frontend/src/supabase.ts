@@ -17,7 +17,8 @@ function db(): SupabaseClient {
 export async function signOut(): Promise<void> {
   profile = null;
   try {
-    await db().auth.signOut();
+    // 'local': only this device. The default (global) would log the user out everywhere.
+    await db().auth.signOut({ scope: 'local' });
   } catch {
     /* not configured or offline: the local session is cleared anyway */
   }
@@ -214,8 +215,11 @@ async function listExpenses(p: { month?: string; limit?: number; user?: string }
 // clientId makes the insert idempotent: expenses.client_id is unique, so a repeat of the same
 // expense (retry, resend after reconnect, reload) fails with 23505. That means "already saved":
 // the existing row is fetched and returned like a normal insert. client_id never leaves here.
-async function addExpense(p: { date: string; item: string; price: number; category: string; clientId: string }): Promise<Expense> {
-  await me();
+async function addExpense(p: { date: string; item: string; price: number; category: string; clientId: string; forUser?: string }): Promise<Expense> {
+  const who = await me();
+  // A queued expense belongs to the user who made it: a retry that fires after someone else
+  // logged in must not be written under the new account.
+  if (p.forUser && p.forUser !== who.name) throw new ApiError('FORBIDDEN', 'queued for a different user');
   const { data, error } = await db()
     .from('expenses')
     .insert({ category_id: await categoryId(p.category), amount: p.price, spent_on: p.date, description: p.item, client_id: p.clientId })
