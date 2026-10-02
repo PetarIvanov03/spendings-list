@@ -29,6 +29,10 @@ RLS: members see and change only their own expenses; the admin reads all and man
 - Creating users, setting someone else's PIN and activating/deactivating users need the secret key, so they are NOT possible from the browser. Do those in the Supabase dashboard. The "people" screen (`AdminUsers.tsx`) exists but is not shown.
 - `localStorage` `session` only mirrors `{name, role}` for the UI (token field is a placeholder); the real session is supabase-js's.
 
+## Idle logout (`idle.ts`)
+
+After `IDLE_TIMEOUT_MS` (config.ts, 10 min) without pointerdown/keydown/touchstart/scroll the app logs out. `lastActivityAt` is a localStorage timestamp (throttled to 5 s), so it works across reloads and tabs. The elapsed time is checked, not timed: at start, on `visibilitychange`, on `focus` and every 30 s. Logout = `signOut({ scope: 'local' })` (this device only), clears cached server data, waits up to 10 s for a request in flight, and the login screen shows a one-time notice. Unsent expenses stay in their per-user queue and are sent only from that user's Add screen (`addExpense` also refuses a queued item when a different user is logged in).
+
 ## Data access (`frontend/src/supabase.ts`)
 
 `call(action, payload)` in `api.ts` is the only function screens use. It dispatches to `backendSend` in `supabase.ts`, which maps the old action names to Supabase queries and returns names (not ids) and string expense ids, so screens did not change. Errors become `ApiError` with codes `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `CONFLICT`, `BAD_REQUEST`, `SERVER_ERROR`, `NETWORK`, `TIMEOUT`.

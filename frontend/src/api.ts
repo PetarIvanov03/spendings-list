@@ -65,9 +65,18 @@ export function useRetrying(): boolean {
   );
 }
 
+// Requests being sent right now: an automatic logout waits for them (see whenRequestsDone).
+let inFlight = 0;
+
+export async function whenRequestsDone(maxMs: number): Promise<void> {
+  const until = Date.now() + maxMs;
+  while (inFlight > 0 && Date.now() < until) await new Promise((r) => setTimeout(r, 200));
+}
+
 // One attempt. Anything that is not an ApiError counts as a transport failure.
 async function attempt<T>(action: string, payload: object | undefined): Promise<T> {
   const started = performance.now();
+  inFlight++;
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<never>((_, reject) => {
     timer = setTimeout(() => reject(new ApiError('TIMEOUT', 'No response within 30 s')), TIMEOUT_MS);
@@ -85,6 +94,7 @@ async function attempt<T>(action: string, payload: object | undefined): Promise<
     }
     throw err;
   } finally {
+    inFlight--;
     clearTimeout(timer);
   }
 }

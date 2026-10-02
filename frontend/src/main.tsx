@@ -2,10 +2,11 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
 import { runBootstrap } from './bootstrap';
+import { isIdleExpired } from './idle';
 import './styles.css';
 
 // With a stored session, the one start-up request goes out before React renders.
-runBootstrap();
+if (!isIdleExpired()) runBootstrap(); // an expired session is closed by the idle watcher instead
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

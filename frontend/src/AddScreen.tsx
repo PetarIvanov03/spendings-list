@@ -101,7 +101,7 @@ export function AddScreen({ user, active }: { user: Session['user']; active: boo
     sending.current.add(p.rid);
     patch(p.rid, { status: 'sending', attempt: 0, error: undefined });
     try {
-      await call('addExpense', { date: p.date, item: p.item, price: p.price, category: p.category, clientId: p.rid }, {
+      await call('addExpense', { date: p.date, item: p.item, price: p.price, category: p.category, clientId: p.rid, forUser: user.name }, {
         onRetry: (n) => patch(p.rid, { attempt: n }),
       });
       invalidateDataCaches();
