@@ -5,6 +5,7 @@ import { formatEur, NEUTRAL_COLOR, parsePrice, priceToInput } from './format';
 import { useOnline } from './online';
 import type { Category, Expense } from './types';
 import { runWrite } from './write';
+import { TemplateForm } from './Templates';
 
 export type SheetOutcome =
   | { kind: 'saved' }
@@ -27,6 +28,7 @@ export function ExpenseSheet({ expense, categories, onClose, onDone }: {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [asTemplate, setAsTemplate] = useState(false);
 
   // The row's current category stays selectable even if it is inactive or gone.
   const options = categories.some((c) => c.name === expense.category)
@@ -62,6 +64,22 @@ export function ExpenseSheet({ expense, categories, onClose, onDone }: {
     if (Object.keys(patch).length === 0) return onClose();
 
     void send(() => call('updateExpense', { id: expense.id, ...patch }), { kind: 'saved' });
+  }
+
+  if (asTemplate) {
+    return (
+      <Sheet title="Нов шаблон" onClose={() => setAsTemplate(false)}>
+        <TemplateForm
+          draft={{
+            title: expense.item,
+            category: categories.some((c) => c.name === expense.category) ? expense.category : null,
+            amount: priceToInput(expense.price),
+          }}
+          categories={categories}
+          onSaved={() => setAsTemplate(false)}
+        />
+      </Sheet>
+    );
   }
 
   return (
@@ -100,6 +118,9 @@ export function ExpenseSheet({ expense, categories, onClose, onDone }: {
             Изтрий
           </button>
         </div>
+        <button type="button" className="secondary wide" disabled={busy || !online} onClick={() => setAsTemplate(true)}>
+          Запази като шаблон
+        </button>
       </form>
 
       {confirmDelete && (

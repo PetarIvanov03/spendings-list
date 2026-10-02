@@ -7,6 +7,7 @@ import { invalidateCategories } from './categories';
 import { OnlineProvider } from './online';
 import { ToastProvider } from './toast';
 import { Login } from './Login';
+import { signOut } from './supabase';
 import { Shell } from './Shell';
 
 export default function App() {
@@ -24,6 +25,7 @@ export default function App() {
 function forgetServerData() {
   clearAllCached();
   invalidateCategories();
+  void signOut();
 }
 
 function Root() {

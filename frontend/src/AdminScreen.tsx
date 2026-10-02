@@ -1,11 +1,10 @@
 import { useState } from 'react';
-import type { Session } from './auth';
 import { ChipRow } from './components';
 import { AdminCategories } from './AdminCategories';
-import { AdminUsers } from './AdminUsers';
+import { AdminTrash } from './AdminTrash';
 
 // Admin tab. Only shown to admins, but that is cosmetic: the server checks every call.
-export function AdminScreen({ user }: { user: Session['user'] }) {
+export function AdminScreen() {
   const [section, setSection] = useState<string | null>('categories');
   return (
     <section className="page">
@@ -16,10 +15,10 @@ export function AdminScreen({ user }: { user: Session['user'] }) {
         onChange={setSection}
         items={[
           { value: 'categories', label: 'Категории' },
-          { value: 'users', label: 'Хора' },
+          { value: 'trash', label: 'Кошче' },
         ]}
       />
-      {section === 'categories' ? <AdminCategories /> : <AdminUsers me={user} />}
+      {section === 'categories' ? <AdminCategories /> : <AdminTrash />}
     </section>
   );
 }

@@ -1,18 +1,20 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
-import { ApiError, call, newRequestId } from './api';
+import { ApiError, call, newClientId } from './api';
 import type { Session } from './auth';
 import { invalidateDataCaches } from './cache';
 import { getCategories, peekCategories } from './categories';
-import { CategoryChips, ConfirmDialog, ErrorBox, Loading } from './components';
+import { CategoryChips, ErrorBox, Loading } from './components';
 import { markAction } from './debug';
-import { dayLabel, formatEur, parsePrice, todayLocal } from './format';
+import { dayLabel, formatEur, parsePrice, priceToInput, todayLocal } from './format';
 import { IconAlert, IconCalendar, IconCheck } from './icons';
 import { errorText } from './messages';
-import { loadPending, REPLAY_WINDOW_MS, savePending, type PendingExpense } from './pending';
+import { loadPending, savePending, type PendingExpense } from './pending';
 import { store } from './storage';
-import type { Category } from './types';
+import { TemplatesSheet } from './Templates';
+import type { Category, Template } from './types';
+import { useFetch } from './useFetch';
 
-// What the strip says when an item could not be sent. Retrying is safe (same requestId).
+// What the strip says when an item could not be sent. Retrying is safe (same client_id).
 function failureText(e: unknown): string {
   const transport = e instanceof ApiError && ['NETWORK', 'TIMEOUT', 'SERVER_ERROR'].includes(e.code);
   return transport ? 'Не успях да изпратя. „Опитай пак“ няма да го запише два пъти.' : errorText(e);
@@ -33,7 +35,8 @@ export function AddScreen({ user, active }: { user: Session['user']; active: boo
   const [date, setDate] = useState(todayLocal);
   const [error, setError] = useState('');
   const [pending, setPending] = useState<PendingExpense[]>(() => loadPending(user.name));
-  const [confirmOld, setConfirmOld] = useState<PendingExpense | null>(null);
+  const [manageOpen, setManageOpen] = useState(false);
+  const templates = useFetch(() => call<Template[]>('templates'), [], { name: 'templates', match: '' });
   const priceRef = useRef<HTMLInputElement>(null);
   const sending = useRef(new Set<string>()); // requestIds being sent right now (no double sends)
   const timers = useRef<number[]>([]);
@@ -63,6 +66,23 @@ export function AddScreen({ user, active }: { user: Session['user']; active: boo
     if (active) loadCategories(true);
   }, [active, loadCategories]);
 
+  // This screen stays mounted: pick up template changes when it is shown again.
+  const shownBefore = useRef(false);
+  useEffect(() => {
+    if (active && shownBefore.current) templates.refetch();
+    if (active) shownBefore.current = true;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active]);
+
+  // Fills the form from a template. Only the form changes: saving is a normal new expense.
+  function applyTemplate(t: Template) {
+    setItem(t.title);
+    setPrice(t.amount === null ? '' : priceToInput(t.amount));
+    setError(t.categoryActive ? '' : 'Категорията е изключена');
+    if (t.categoryActive) setCategory(t.category);
+    if (t.amount === null) priceRef.current?.focus();
+  }
+
   useEffect(() => savePending(user.name, pending), [pending, user.name]);
   useEffect(() => () => timers.current.forEach((t) => window.clearTimeout(t)), []);
 
@@ -71,7 +91,7 @@ export function AddScreen({ user, active }: { user: Session['user']; active: boo
   }, []);
 
   // Sends one pending item in the background. call() retries network failures and timeouts
-  // with the same requestId; only when that is exhausted does the item stay in the strip.
+  // with the same client_id; only when that is exhausted does the item stay in the strip.
   const send = useCallback(async (p: PendingExpense) => {
     if (sending.current.has(p.rid)) return;
     if (!navigator.onLine) {
@@ -81,8 +101,7 @@ export function AddScreen({ user, active }: { user: Session['user']; active: boo
     sending.current.add(p.rid);
     patch(p.rid, { status: 'sending', attempt: 0, error: undefined });
     try {
-      await call('addExpense', { date: p.date, item: p.item, price: p.price, category: p.category }, {
-        requestId: p.rid,
+      await call('addExpense', { date: p.date, item: p.item, price: p.price, category: p.category, clientId: p.rid }, {
         onRetry: (n) => patch(p.rid, { attempt: n }),
       });
       invalidateDataCaches();
@@ -96,21 +115,16 @@ export function AddScreen({ user, active }: { user: Session['user']; active: boo
     }
   }, [patch]);
 
-  // Back online: send what could not be sent (same requestIds, so no duplicates).
+  // Back online: send what could not be sent (same client_id, so no duplicates).
   useEffect(() => {
     const onOnline = () => {
       pendingRef.current
-        .filter((p) => p.status === 'failed' && Date.now() - p.createdAt < REPLAY_WINDOW_MS)
+        .filter((p) => p.status === 'failed')
         .forEach((p) => void send(p));
     };
     window.addEventListener('online', onOnline);
     return () => window.removeEventListener('online', onOnline);
   }, [send]);
-
-  function retry(p: PendingExpense) {
-    if (Date.now() - p.createdAt > REPLAY_WINDOW_MS) setConfirmOld(p);
-    else void send(p);
-  }
 
   // Saving is instant: the form clears and the item goes to the strip; the send happens in the background.
   function save(e: FormEvent) {
@@ -123,7 +137,7 @@ export function AddScreen({ user, active }: { user: Session['user']; active: boo
     if (!category) return setError('Избери категория.');
 
     const p: PendingExpense = {
-      rid: newRequestId(),
+      rid: newClientId(),
       date,
       item: text,
       price: amount,
@@ -174,7 +188,7 @@ export function AddScreen({ user, active }: { user: Session['user']; active: boo
                 <>
                   <p className="error">{p.error}</p>
                   <div className="pending-actions">
-                    <button className="secondary" onClick={() => retry(p)}>Опитай пак</button>
+                    <button className="secondary" onClick={() => void send(p)}>Опитай пак</button>
                     <button className="secondary" onClick={() => setPending((l) => l.filter((x) => x.rid !== p.rid))}>
                       Изтрий
                     </button>
@@ -185,6 +199,23 @@ export function AddScreen({ user, active }: { user: Session['user']; active: boo
           ))}
         </ul>
       )}
+
+      <div className="filter-row" role="group" aria-label="Шаблони">
+        {(templates.data ?? []).map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            className="filter-chip"
+            style={t.categoryActive ? undefined : { opacity: 0.5 }}
+            onClick={() => applyTemplate(t)}
+          >
+            {t.title}
+          </button>
+        ))}
+        <button type="button" className="filter-chip" onClick={() => setManageOpen(true)}>
+          Шаблони
+        </button>
+      </div>
 
       <form onSubmit={save} noValidate>
         <div className="amount-field">
@@ -257,19 +288,7 @@ export function AddScreen({ user, active }: { user: Session['user']; active: boo
         </div>
       </form>
 
-      {confirmOld && (
-        <ConfirmDialog
-          title="Минало е много време"
-          message="Записът може вече да е в „Списък“, а защитата от двойно записване важи само 30 минути. Провери в „Списък“. Да опитам ли пак?"
-          confirmText="Опитай пак"
-          onCancel={() => setConfirmOld(null)}
-          onConfirm={() => {
-            const p = confirmOld;
-            setConfirmOld(null);
-            void send(p);
-          }}
-        />
-      )}
+      {manageOpen && <TemplatesSheet categories={categories ?? []} onClose={() => setManageOpen(false)} />}
     </section>
   );
 }

@@ -18,8 +18,8 @@ export function Login({ onLogin, notice }: { onLogin: (s: Session) => void; noti
   const inFlight = useRef(false); // synchronous guard against a double submit (Enter + click)
   const pinRef = useRef<HTMLInputElement>(null);
 
-  // No auto-submit: a 4-digit member PIN and a 6-digit admin PIN look the same until the end.
-  const canSubmit = !busy && name.trim().length > 0 && /^\d{4,6}$/.test(pin);
+  // No auto-submit: the button is enabled only with exactly 6 digits.
+  const canSubmit = !busy && name.trim().length > 0 && /^\d{6}$/.test(pin);
 
   async function submit(e: FormEvent) {
     e.preventDefault();

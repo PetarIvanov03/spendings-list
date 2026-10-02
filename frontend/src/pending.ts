@@ -1,8 +1,8 @@
 import { store } from './storage';
 
 // An expense the user has saved on the Add screen but the server has not confirmed yet.
-// It keeps its requestId for its whole life: every send of the same item uses the same id,
-// so the server never records it twice (it replays its stored response for 30 minutes).
+// `rid` is the expense's client_id (uuid, generated once). Every send of the same item uses
+// it, so the database never records it twice (unique constraint), however many retries.
 export interface PendingExpense {
   rid: string;
   date: string;
@@ -14,10 +14,6 @@ export interface PendingExpense {
   attempt: number; // automatic retry in progress (0 = first try)
   error?: string;
 }
-
-// The server remembers a requestId for 30 minutes. Older items may be sent again by the
-// user, but only after a warning, because a double entry can no longer be ruled out.
-export const REPLAY_WINDOW_MS = 25 * 60 * 1000;
 
 const keyFor = (user: string) => `pending:${user}`;
 

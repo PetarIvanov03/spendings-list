@@ -21,7 +21,7 @@ function notFoundText(message: string): string {
 
 function conflictText(message: string): string {
   if (/last active admin/i.test(message)) return 'Не можеш да деактивираш последния активен администратор.';
-  if (/category already/i.test(message)) return 'Категория с това име вече съществува.';
+  if (/category already/i.test(message)) return 'Вече съществува.';
   if (/user already/i.test(message)) return 'Човек с това име вече съществува.';
   return 'Конфликт с други промени. Опитай пак.';
 }

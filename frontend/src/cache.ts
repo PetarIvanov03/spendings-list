@@ -63,6 +63,7 @@ export function invalidateDataCaches(): void {
   markStale('list');
   markStale('summary');
   markStale('adminUsers');
+  markStale('templates');
 }
 
 export function clearAllCached(): void {
