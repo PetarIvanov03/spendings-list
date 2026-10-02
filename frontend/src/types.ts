@@ -20,6 +20,16 @@ export interface Expense {
   createdAt: string;
 }
 
+// A personal template for a repeating expense. `amount` null = ask every time.
+export interface Template {
+  id: string;
+  title: string;
+  category: string;
+  categoryActive: boolean;
+  amount: number | null;
+  order: number;
+}
+
 export interface TrashExpense extends Expense {
   deletedAt: string; // ISO
 }

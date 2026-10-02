@@ -5,12 +5,14 @@ import { invalidateDataCaches } from './cache';
 import { getCategories, peekCategories } from './categories';
 import { CategoryChips, ErrorBox, Loading } from './components';
 import { markAction } from './debug';
-import { dayLabel, formatEur, parsePrice, todayLocal } from './format';
+import { dayLabel, formatEur, parsePrice, priceToInput, todayLocal } from './format';
 import { IconAlert, IconCalendar, IconCheck } from './icons';
 import { errorText } from './messages';
 import { loadPending, savePending, type PendingExpense } from './pending';
 import { store } from './storage';
-import type { Category } from './types';
+import { TemplatesSheet } from './Templates';
+import type { Category, Template } from './types';
+import { useFetch } from './useFetch';
 
 // What the strip says when an item could not be sent. Retrying is safe (same client_id).
 function failureText(e: unknown): string {
@@ -33,6 +35,8 @@ export function AddScreen({ user, active }: { user: Session['user']; active: boo
   const [date, setDate] = useState(todayLocal);
   const [error, setError] = useState('');
   const [pending, setPending] = useState<PendingExpense[]>(() => loadPending(user.name));
+  const [manageOpen, setManageOpen] = useState(false);
+  const templates = useFetch(() => call<Template[]>('templates'), [], { name: 'templates', match: '' });
   const priceRef = useRef<HTMLInputElement>(null);
   const sending = useRef(new Set<string>()); // requestIds being sent right now (no double sends)
   const timers = useRef<number[]>([]);
@@ -61,6 +65,23 @@ export function AddScreen({ user, active }: { user: Session['user']; active: boo
   useEffect(() => {
     if (active) loadCategories(true);
   }, [active, loadCategories]);
+
+  // This screen stays mounted: pick up template changes when it is shown again.
+  const shownBefore = useRef(false);
+  useEffect(() => {
+    if (active && shownBefore.current) templates.refetch();
+    if (active) shownBefore.current = true;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active]);
+
+  // Fills the form from a template. Only the form changes: saving is a normal new expense.
+  function applyTemplate(t: Template) {
+    setItem(t.title);
+    setPrice(t.amount === null ? '' : priceToInput(t.amount));
+    setError(t.categoryActive ? '' : 'Категорията е изключена');
+    if (t.categoryActive) setCategory(t.category);
+    if (t.amount === null) priceRef.current?.focus();
+  }
 
   useEffect(() => savePending(user.name, pending), [pending, user.name]);
   useEffect(() => () => timers.current.forEach((t) => window.clearTimeout(t)), []);
@@ -179,6 +200,23 @@ export function AddScreen({ user, active }: { user: Session['user']; active: boo
         </ul>
       )}
 
+      <div className="filter-row" role="group" aria-label="Шаблони">
+        {(templates.data ?? []).map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            className="filter-chip"
+            style={t.categoryActive ? undefined : { opacity: 0.5 }}
+            onClick={() => applyTemplate(t)}
+          >
+            {t.title}
+          </button>
+        ))}
+        <button type="button" className="filter-chip" onClick={() => setManageOpen(true)}>
+          Шаблони
+        </button>
+      </div>
+
       <form onSubmit={save} noValidate>
         <div className="amount-field">
           <label htmlFor="price" className="sr-only">Сума (€)</label>
@@ -250,6 +288,7 @@ export function AddScreen({ user, active }: { user: Session['user']; active: boo
         </div>
       </form>
 
+      {manageOpen && <TemplatesSheet categories={categories ?? []} onClose={() => setManageOpen(false)} />}
     </section>
   );
 }

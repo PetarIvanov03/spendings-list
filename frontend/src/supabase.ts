@@ -2,7 +2,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { ApiError, type ErrorCode } from './api';
 import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from './config';
 import type { Role } from './auth';
-import type { AdminCategory, AdminUser, Category, Expense, SummaryData, TrashExpense } from './types';
+import type { AdminCategory, AdminUser, Category, Expense, SummaryData, Template, TrashExpense } from './types';
 
 // Backend actions on Supabase. Same action names and result shapes the screens already use
 // (names instead of ids, string expense ids), so the UI did not change. Security is RLS.
@@ -254,6 +254,85 @@ async function deleteExpense(p: { id: string }): Promise<{ id: string }> {
   return { id: p.id };
 }
 
+// ---- personal templates (RLS: each user sees and changes only their own) ----
+
+interface TemplateRow { id: number; title: string; category_id: number; amount: number | string | null; sort_order: number }
+const TEMPLATE_COLS = 'id,title,category_id,amount,sort_order';
+
+async function toTemplates(rows: TemplateRow[]): Promise<Template[]> {
+  const cats = new Map((await allCategories()).map((c) => [c.id, c]));
+  return rows.map((r) => ({
+    id: String(r.id),
+    title: r.title,
+    category: cats.get(r.category_id)?.name ?? '',
+    categoryActive: cats.get(r.category_id)?.active ?? false,
+    amount: r.amount === null ? null : Number(r.amount),
+    order: r.sort_order,
+  }));
+}
+
+function checkTemplate(p: { title: string; amount: number | null }): string {
+  const title = p.title.trim();
+  if (title.length < 1 || title.length > 100) throw new ApiError('BAD_REQUEST', 'item must be 1-100 characters');
+  if (p.amount !== null && !(p.amount > 0 && Math.round(p.amount * 100) / 100 === p.amount && p.amount < 100000)) {
+    throw new ApiError('BAD_REQUEST', 'price is invalid');
+  }
+  return title;
+}
+
+async function templates(): Promise<Template[]> {
+  const who = await me();
+  const { data, error } = await db().from('templates').select(TEMPLATE_COLS).eq('user_id', who.id).order('sort_order').order('id');
+  if (error) fail(error);
+  return toTemplates(data as TemplateRow[]);
+}
+
+async function addTemplate(p: { title: string; category: string; amount: number | null }): Promise<Template> {
+  const who = await me();
+  const title = checkTemplate(p);
+  const max = Math.max(0, ...(await templates()).map((t) => t.order));
+  const { data, error } = await db()
+    .from('templates')
+    .insert({ title, category_id: await categoryId(p.category), amount: p.amount, sort_order: max + 1, user_id: who.id })
+    .select(TEMPLATE_COLS)
+    .single();
+  if (error) fail(error);
+  return (await toTemplates([data as TemplateRow]))[0];
+}
+
+async function updateTemplate(p: { id: string; title: string; category: string; amount: number | null }): Promise<Template> {
+  const who = await me();
+  const title = checkTemplate(p);
+  const { data, error } = await db()
+    .from('templates')
+    .update({ title, category_id: await categoryId(p.category), amount: p.amount })
+    .eq('id', Number(p.id))
+    .eq('user_id', who.id)
+    .select(TEMPLATE_COLS);
+  if (error) fail(error);
+  if (!data || data.length === 0) throw new ApiError('NOT_FOUND', 'template not found');
+  return (await toTemplates(data as TemplateRow[]))[0];
+}
+
+async function deleteTemplate(p: { id: string }): Promise<{ id: string }> {
+  const who = await me();
+  const { data, error } = await db().from('templates').delete().eq('id', Number(p.id)).eq('user_id', who.id).select('id');
+  if (error) fail(error);
+  if (!data || data.length === 0) throw new ApiError('NOT_FOUND', 'template not found');
+  return { id: p.id };
+}
+
+// Sets sort_order of the given templates (the caller sends only those that changed).
+async function reorderTemplates(p: { orders: { id: string; order: number }[] }): Promise<Record<string, never>> {
+  const who = await me();
+  const results = await Promise.all(
+    p.orders.map((o) => db().from('templates').update({ sort_order: o.order }).eq('id', Number(o.id)).eq('user_id', who.id)),
+  );
+  const failed = results.find((r) => r.error);
+  if (failed?.error) fail(failed.error);
+  return {};
+}
+
 // ---- trash (admin) ----
 
 async function trash(): Promise<TrashExpense[]> {
@@ -400,6 +479,11 @@ export async function backendSend(action: string, payload: unknown): Promise<unk
     case 'updateCategory': return updateCategory(p);
     case 'renameCategory': return renameCategory(p);
     case 'trash': return trash();
+    case 'templates': return templates();
+    case 'addTemplate': return addTemplate(p);
+    case 'updateTemplate': return updateTemplate(p);
+    case 'deleteTemplate': return deleteTemplate(p);
+    case 'reorderTemplates': return reorderTemplates(p);
     case 'restoreExpense': return restoreExpense(p);
     case 'purgeExpense': return purgeExpense(p);
     case 'changePin': return changePin(p);

@@ -15,7 +15,7 @@ Priorities: **dead simple daily use** (add an expense in ~3 taps), low maintenan
 - `profiles(id = auth.uid(), name, is_admin)`
 - `categories(id bigint, name, active, sort_order)` (no color column: the frontend picks a color per category id)
 - `expenses(id bigint, user_id default auth.uid(), category_id, amount numeric, spent_on date, description, deleted_at, created_at, client_id uuid not null default gen_random_uuid() unique)`
-- `templates(...)`: not used yet
+- `templates(id bigint, user_id default auth.uid(), title, category_id, amount numeric null, sort_order, created_at)`: personal; RLS gives each user (admin too) only their own
 - view `monthly_totals(user_id, category_id, month date, total, n)`: only non-deleted rows, RLS applies
 - function `delete_expense(p_id bigint)`: soft delete (sets `deleted_at`)
 
@@ -38,6 +38,10 @@ RLS: members see and change only their own expenses; the admin reads all and man
 - **Delete** = `rpc('delete_expense')` (soft). **Trash** (admin): `deleted_at is not null`, newest deleted first; restore sets `deleted_at = null`; permanent delete is a real `delete`, only on rows already in the trash.
 - **Categories** (admin): list all, add (`sort_order = max + 1`, name 1-50 chars, unique, conflict shows "Вече съществува"), rename (expenses follow through `category_id`), activate/deactivate, reorder (renumber 1..n). No delete. Inactive categories disappear from the Add menu; old expenses keep them.
 - **No retries without safety**: `login` and `changePin` are never retried; other writes are idempotent and retry after network errors or a 30 s timeout (2 s, 4 s, 8 s); reads retry twice.
+
+### Personal templates (`Templates.tsx`)
+
+Chips above the Add form fill description, category and amount (empty amount = empty, focused field); saving is a normal `addExpense` and never changes the template. A template whose category is inactive is dimmed and warns "Категорията е изключена" without filling the category. The "Шаблони" button opens the manager (add, edit, delete with confirm, reorder with arrows). The expense edit sheet has "Запази като шаблон".
 
 ### Duplicate protection (`client_id`)
 

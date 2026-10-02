@@ -30,6 +30,7 @@ const NO_RETRY = new Set(['login', 'changePin']);
 const MUTATING = new Set([
   'addExpense', 'updateExpense', 'deleteExpense', 'changePin',
   'addCategory', 'updateCategory', 'renameCategory', 'restoreExpense', 'purgeExpense',
+  'addTemplate', 'updateTemplate', 'deleteTemplate', 'reorderTemplates',
 ]);
 const WRITE_RETRY_DELAYS = [2000, 4000, 8000];
 const READ_RETRY_DELAYS = [1500, 3000];
