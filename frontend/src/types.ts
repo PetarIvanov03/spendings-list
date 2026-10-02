@@ -20,6 +20,10 @@ export interface Expense {
   createdAt: string;
 }
 
+export interface TrashExpense extends Expense {
+  deletedAt: string; // ISO
+}
+
 export interface AdminUser {
   name: string;
   role: Role;

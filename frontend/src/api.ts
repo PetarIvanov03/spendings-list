@@ -28,7 +28,10 @@ const TIMEOUT_MS = 30_000;
 // Retried after a transport failure. addExpense, login and changePin are never retried:
 // without an idempotency key a second attempt could record the expense twice.
 const NO_RETRY = new Set(['addExpense', 'login', 'changePin']);
-const MUTATING = new Set(['addExpense', 'updateExpense', 'deleteExpense', 'changePin']);
+const MUTATING = new Set([
+  'addExpense', 'updateExpense', 'deleteExpense', 'changePin',
+  'addCategory', 'updateCategory', 'renameCategory', 'restoreExpense', 'purgeExpense',
+]);
 const WRITE_RETRY_DELAYS = [2000, 4000, 8000];
 const READ_RETRY_DELAYS = [1500, 3000];
 

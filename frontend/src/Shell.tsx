@@ -11,8 +11,6 @@ import { ChangePinSheet } from './ChangePin';
 import { ListScreen } from './ListScreen';
 import { SummaryScreen } from './SummaryScreen';
 
-const SHOW_ADMIN_TAB = false;
-
 type Tab = 'add' | 'list' | 'summary' | 'admin';
 
 const ICONS: Record<Tab, ReactElement> = {
@@ -41,9 +39,7 @@ export function Shell({ user, onLogout, onPinChanged }: {
     { id: 'add', label: 'Добави' },
     { id: 'list', label: 'Списък' },
     { id: 'summary', label: 'Справка' },
-    // Admin tab hidden for now: adding users, setting PINs and category admin are not possible
-    // from the browser on Supabase yet (see AdminScreen).
-    ...(SHOW_ADMIN_TAB && isAdmin ? [{ id: 'admin' as Tab, label: 'Админ' }] : []),
+    ...(isAdmin ? [{ id: 'admin' as Tab, label: 'Админ' }] : []),
   ];
 
   return (
@@ -76,7 +72,7 @@ export function Shell({ user, onLogout, onPinChanged }: {
         </div>
         {tab === 'list' && <ListScreen user={user} />}
         {tab === 'summary' && <SummaryScreen user={user} />}
-        {tab === 'admin' && SHOW_ADMIN_TAB && isAdmin && <AdminScreen user={user} />}
+        {tab === 'admin' && isAdmin && <AdminScreen />}
       </main>
 
       <nav className="tabbar" aria-label="Основна навигация">

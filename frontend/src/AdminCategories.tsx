@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { call } from './api';
 import { invalidateCategories } from './categories';
-import { ColorPicker, ConfirmDialog, ErrorBox, Loading, Notice, Sheet } from './components';
+import { ConfirmDialog, ErrorBox, Loading, Notice, Sheet } from './components';
 import { textColorFor } from './format';
 import { IconArrowDown, IconArrowUp, IconEdit } from './icons';
 import { useOnline } from './online';
@@ -126,7 +126,6 @@ function CategorySheet({ cat, onClose, onChanged }: {
   onChanged: (message: string, uncertain?: boolean) => void;
 }) {
   const online = useOnline();
-  const [color, setColor] = useState(cat.color);
   const [name, setName] = useState(cat.name);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -146,16 +145,6 @@ function CategorySheet({ cat, onClose, onChanged }: {
 
   return (
     <Sheet title={cat.name} onClose={onClose}>
-      <span className="label">Цвят</span>
-      <ColorPicker value={color} onChange={setColor} />
-      <button
-        className="secondary wide"
-        disabled={busy || !online || color.toLowerCase() === cat.color.toLowerCase()}
-        onClick={() => void run(() => call('updateCategory', { name: cat.name, color }), 'Цветът е сменен ✓')}
-      >
-        Запази цвят
-      </button>
-
       <label htmlFor="cat-name">Ново име</label>
       <input id="cat-name" type="text" maxLength={50} autoComplete="off" value={name} onChange={(e) => setName(e.target.value)} />
       <button
@@ -187,7 +176,7 @@ function CategorySheet({ cat, onClose, onChanged }: {
       {confirm === 'rename' && (
         <ConfirmDialog
           title="Преименуване"
-          message={`„${cat.name}“ става „${newName}“. Всички съществуващи разходи с това име също ще бъдат обновени.`}
+          message={`„${cat.name}“ става „${newName}“. Съществуващите разходи ще покажат новото име.`}
           confirmText="Преименувай"
           busy={busy}
           onCancel={() => setConfirm(null)}
@@ -215,7 +204,6 @@ function AddCategorySheet({ onClose, onChanged }: {
 }) {
   const online = useOnline();
   const [name, setName] = useState('');
-  const [color, setColor] = useState('#d9ead3');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const trimmed = name.trim();
@@ -224,7 +212,7 @@ function AddCategorySheet({ onClose, onChanged }: {
     if (trimmed.length < 1 || trimmed.length > 50) return setError('Името трябва да е от 1 до 50 символа.');
     setBusy(true);
     setError('');
-    const r = await runWrite(() => call('addCategory', { name: trimmed, color }));
+    const r = await runWrite(() => call('addCategory', { name: trimmed }));
     if (r.ok) return onChanged('Категорията е добавена ✓');
     if (r.uncertain) return onChanged(r.message, true);
     setError(r.message);
@@ -235,8 +223,6 @@ function AddCategorySheet({ onClose, onChanged }: {
     <Sheet title="Нова категория" onClose={onClose}>
       <label htmlFor="new-cat">Име</label>
       <input id="new-cat" type="text" maxLength={50} autoComplete="off" autoFocus value={name} onChange={(e) => setName(e.target.value)} />
-      <span className="label">Цвят</span>
-      <ColorPicker value={color} onChange={setColor} />
       <p className="error" role="alert">{error}</p>
       {!online && <p className="muted">Няма връзка — промените са изключени.</p>}
       <button className="primary save" disabled={busy || !online} onClick={() => void save()}>

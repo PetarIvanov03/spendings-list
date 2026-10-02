@@ -2,7 +2,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { ApiError, type ErrorCode } from './api';
 import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from './config';
 import type { Role } from './auth';
-import type { AdminUser, Category, Expense, SummaryData } from './types';
+import type { AdminCategory, AdminUser, Category, Expense, SummaryData, TrashExpense } from './types';
 
 // Backend actions on Supabase. Same action names and result shapes the screens already use
 // (names instead of ids, string expense ids), so the UI did not change. Security is RLS.
@@ -98,6 +98,66 @@ async function categories(): Promise<Category[]> {
     .map((c) => ({ name: c.name, color: colorFor(c.id), order: c.sort_order }));
 }
 
+const NAME_ERROR = 'name must be 1-50 characters';
+
+async function adminCategories(): Promise<AdminCategory[]> {
+  await requireAdmin();
+  return (await allCategories()).map((c) => ({ name: c.name, color: colorFor(c.id), order: c.sort_order, active: c.active }));
+}
+
+async function findCategory(name: string): Promise<CategoryRow> {
+  const found = (await allCategories()).find((c) => c.name === name);
+  if (!found) throw new ApiError('NOT_FOUND', 'category not found');
+  return found;
+}
+
+// Unique-name check in code too, in case the table has no unique constraint.
+async function checkNewName(raw: string, exceptId?: number): Promise<string> {
+  const name = raw.trim();
+  if (name.length < 1 || name.length > 50) throw new ApiError('BAD_REQUEST', NAME_ERROR);
+  const clash = (await allCategories()).some((c) => c.id !== exceptId && c.name.toLowerCase() === name.toLowerCase());
+  if (clash) throw new ApiError('CONFLICT', 'category already exists');
+  return name;
+}
+
+function categoryWriteError(e: DbError): never {
+  if (e.code === '23505') throw new ApiError('CONFLICT', 'category already exists');
+  fail(e);
+}
+
+async function addCategory(p: { name: string }): Promise<AdminCategory> {
+  await requireAdmin();
+  const name = await checkNewName(p.name);
+  const max = Math.max(0, ...(await allCategories()).map((c) => c.sort_order));
+  const { data, error } = await db().from('categories').insert({ name, sort_order: max + 1 }).select('id,name,active,sort_order').single();
+  if (error) categoryWriteError(error);
+  const c = data as CategoryRow;
+  return { name: c.name, color: colorFor(c.id), order: c.sort_order, active: c.active };
+}
+
+async function updateCategory(p: { name: string; active?: boolean; order?: number }): Promise<Record<string, never>> {
+  await requireAdmin();
+  const c = await findCategory(p.name);
+  const patch: Record<string, unknown> = {};
+  if (p.active !== undefined) patch.active = p.active;
+  if (p.order !== undefined) patch.sort_order = p.order;
+  const { data, error } = await db().from('categories').update(patch).eq('id', c.id).select('id');
+  if (error) fail(error);
+  if (!data || data.length === 0) throw new ApiError('FORBIDDEN', 'category not updated');
+  return {};
+}
+
+// Expenses point to category_id, so renaming the row renames it everywhere.
+async function renameCategory(p: { oldName: string; newName: string }): Promise<Record<string, never>> {
+  await requireAdmin();
+  const c = await findCategory(p.oldName);
+  const name = await checkNewName(p.newName, c.id);
+  const { data, error } = await db().from('categories').update({ name }).eq('id', c.id).select('id');
+  if (error) categoryWriteError(error);
+  if (!data || data.length === 0) throw new ApiError('FORBIDDEN', 'category not updated');
+  return {};
+}
+
 // ---- expenses ----
 
 interface ExpenseRow {
@@ -184,6 +244,42 @@ async function deleteExpense(p: { id: string }): Promise<{ id: string }> {
   await me();
   const { error } = await db().rpc('delete_expense', { p_id: Number(p.id) });
   if (error) fail(error);
+  return { id: p.id };
+}
+
+// ---- trash (admin) ----
+
+async function trash(): Promise<TrashExpense[]> {
+  await requireAdmin();
+  const { data, error } = await db()
+    .from('expenses')
+    .select(`${EXPENSE_COLS},deleted_at`)
+    .not('deleted_at', 'is', null)
+    .order('deleted_at', { ascending: false });
+  if (error) fail(error);
+  const rows = data as (ExpenseRow & { deleted_at: string })[];
+  const mapped = await mapExpenses(rows);
+  return mapped.map((e, i) => ({ ...e, deletedAt: rows[i].deleted_at }));
+}
+
+async function restoreExpense(p: { id: string }): Promise<{ id: string }> {
+  await requireAdmin();
+  const { data, error } = await db()
+    .from('expenses')
+    .update({ deleted_at: null })
+    .eq('id', Number(p.id))
+    .not('deleted_at', 'is', null)
+    .select('id');
+  if (error) fail(error);
+  if (!data || data.length === 0) throw new ApiError('NOT_FOUND', 'expense not found');
+  return { id: p.id };
+}
+
+async function purgeExpense(p: { id: string }): Promise<{ id: string }> {
+  await requireAdmin();
+  const { data, error } = await db().from('expenses').delete().eq('id', Number(p.id)).not('deleted_at', 'is', null).select('id');
+  if (error) fail(error);
+  if (!data || data.length === 0) throw new ApiError('NOT_FOUND', 'expense not found');
   return { id: p.id };
 }
 
@@ -292,9 +388,16 @@ export async function backendSend(action: string, payload: unknown): Promise<unk
       await requireAdmin();
       return summarize((p as { month: string }).month, { userName: (p as { user?: string }).user });
     case 'adminUsers': return adminUsers();
+    case 'adminCategories': return adminCategories();
+    case 'addCategory': return addCategory(p);
+    case 'updateCategory': return updateCategory(p);
+    case 'renameCategory': return renameCategory(p);
+    case 'trash': return trash();
+    case 'restoreExpense': return restoreExpense(p);
+    case 'purgeExpense': return purgeExpense(p);
     case 'changePin': return changePin(p);
     default:
-      // addUser, setPin, setUserActive and the category admin actions are not available yet.
+      // addUser, setPin and setUserActive need a secret key: not possible from the browser.
       throw new ApiError('BAD_REQUEST', `action not supported: ${action}`);
   }
 }
