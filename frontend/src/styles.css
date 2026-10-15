@@ -359,9 +359,16 @@ input[type='color'] {
   width: 100%;
   min-width: 0;
   box-sizing: border-box;
+  /* same box as the text inputs, so the value centers like theirs */
+  height: 52px;
+  min-height: 52px;
+  padding: 0 var(--sp-4);
+  line-height: inherit;
 }
 
 .sheet input[type='date']::-webkit-date-and-time-value {
+  margin: 0;
+  padding: 0;
   text-align: left;
 }
 
