@@ -351,6 +351,20 @@ input[type='color'] {
   padding: 2px;
 }
 
+/* iOS Safari gives date inputs an intrinsic width that overflows the sheet */
+.sheet input[type='date'] {
+  -webkit-appearance: none;
+  appearance: none;
+  display: block;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.sheet input[type='date']::-webkit-date-and-time-value {
+  text-align: left;
+}
+
 .error {
   min-height: 1.4em;
   margin-top: var(--sp-2);
@@ -562,6 +576,7 @@ input[type='color'] {
   max-width: var(--column);
   max-height: 92dvh;
   overflow-y: auto;
+  overflow-x: hidden;
   overscroll-behavior: contain;
   padding: var(--sp-2) var(--sp-4) calc(var(--sp-4) + env(safe-area-inset-bottom));
   border-radius: var(--radius-xl) var(--radius-xl) 0 0;
