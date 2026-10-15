@@ -2,8 +2,9 @@ import { useMemo, useState } from 'react';
 import { call } from './api';
 import { seesFamily, type Session } from './auth';
 import { useCategories } from './categories';
-import { ChipRow, Empty, ErrorBox, Loading, MonthSwitcher, Refreshing, StaleNotice } from './components';
-import { currentMonth, formatEur, formatPercent, NEUTRAL_COLOR } from './format';
+import { Empty, ErrorBox, Loading, Refreshing, StaleNotice } from './components';
+import { Dropdown } from './Dropdown';
+import { currentMonth, formatEur, formatPercent, monthOptions, NEUTRAL_COLOR } from './format';
 import type { AdminUser, SummaryData } from './types';
 import { useFetch } from './useFetch';
 
@@ -59,16 +60,18 @@ export function SummaryScreen({ user }: { user: Session['user'] }) {
 
   return (
     <section className="page">
-      <MonthSwitcher month={month} onChange={setMonth} />
-      {family && (
-        <ChipRow
-          segmented
-          label="Обхват на справката"
-          value={who}
-          onChange={setWho}
-          items={[{ value: null, label: 'Семейство' }, ...(users.data ?? []).map((u) => ({ value: u.name, label: u.name }))]}
-        />
-      )}
+      <div className="dd-row">
+        <Dropdown label="Месец" value={month} defaultValue={currentMonth()} onChange={setMonth} options={monthOptions(month)} />
+        {family && (
+          <Dropdown
+            label="Обхват на справката"
+            value={who}
+            defaultValue={null}
+            onChange={setWho}
+            options={[{ value: null, label: 'Семейство' }, ...(users.data ?? []).map((u) => ({ value: u.name, label: u.name }))]}
+          />
+        )}
+      </div>
 
       <Refreshing show={summary.refreshing} />
       <StaleNotice show={!!summary.error && data !== null} onRetry={summary.refetch} />
