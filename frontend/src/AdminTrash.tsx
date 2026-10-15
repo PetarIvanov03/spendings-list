@@ -40,7 +40,7 @@ export function AdminTrash() {
   }
 
   return (
-    <div>
+    <div className="admin-pane">
       <Notice text={notice} onDismiss={() => setNotice('')} />
       {rows.error && rows.data === null ? (
         <ErrorBox message={rows.error} onRetry={rows.refetch} />
@@ -70,12 +70,14 @@ export function AdminTrash() {
       )}
 
       {open && (
-        <Sheet title={open.item} onClose={() => setOpen(null)}>
-          <p>
-            {formatEur(open.price)} · {open.category} · {open.user} · {open.date}
-          </p>
-          <p className="error" role="alert">{error}</p>
-          {!online && <p className="muted">Няма връзка — промените са изключени.</p>}
+        <Sheet pinned title={open.item} onClose={() => setOpen(null)}>
+          <div className="sheet-scroll">
+            <p>
+              {formatEur(open.price)} · {open.category} · {open.user} · {open.date}
+            </p>
+            <p className="error" role="alert">{error}</p>
+            {!online && <p className="muted">Няма връзка — промените са изключени.</p>}
+          </div>
           <div className="sheet-actions">
             <button
               className="primary save"

@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { call } from './api';
 import { CategoryChips, ConfirmDialog, Sheet } from './components';
-import { formatEur, NEUTRAL_COLOR, parsePrice, priceToInput } from './format';
+import { dayLabel, formatEur, NEUTRAL_COLOR, parsePrice, priceToInput } from './format';
 import { useOnline } from './online';
 import type { Category, Expense } from './types';
 import { runWrite } from './write';
@@ -68,7 +68,7 @@ export function ExpenseSheet({ expense, categories, onClose, onDone }: {
 
   if (asTemplate) {
     return (
-      <Sheet title="Нов шаблон" onClose={() => setAsTemplate(false)}>
+      <Sheet pinned title="Нов шаблон" onClose={() => setAsTemplate(false)}>
         <TemplateForm
           draft={{
             title: expense.item,
@@ -83,8 +83,9 @@ export function ExpenseSheet({ expense, categories, onClose, onDone }: {
   }
 
   return (
-    <Sheet title="Редакция" onClose={onClose}>
+    <Sheet pinned title="Редакция" onClose={onClose}>
       <form onSubmit={save} noValidate>
+        <div className="sheet-scroll">
         <div className="amount-field">
           <label htmlFor="e-price" className="sr-only">Сума (€)</label>
           <input
@@ -104,12 +105,31 @@ export function ExpenseSheet({ expense, categories, onClose, onDone }: {
         <label htmlFor="e-item">Какво</label>
         <input id="e-item" type="text" maxLength={100} autoComplete="off" value={item} onChange={(e) => setItem(e.target.value)} />
         <label htmlFor="e-date">Дата</label>
-        <input id="e-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+        <div className="date-field">
+          <span className="date-value">{/^\d{4}-\d{2}-\d{2}$/.test(date) ? dayLabel(date) : 'Дата'}</span>
+          <input
+            id="e-date"
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            onClick={(e) => {
+              try {
+                e.currentTarget.showPicker?.(); // desktop browsers: open the picker on click
+              } catch {
+                /* not allowed here: the native control still works */
+              }
+            }}
+          />
+        </div>
         <span className="label" id="e-cat">Категория</span>
         <CategoryChips categories={options} selected={category} onSelect={setCategory} labelledBy="e-cat" grid />
 
         <p className="error" role="alert">{error}</p>
         {!online && <p className="muted">Няма връзка — промените са изключени.</p>}
+        <button type="button" className="secondary wide" disabled={busy || !online} onClick={() => setAsTemplate(true)}>
+          Запази като шаблон
+        </button>
+        </div>
         <div className="sheet-actions">
           <button type="submit" className="primary save" disabled={busy || !online}>
             {busy ? 'Записвам…' : 'Запази'}
@@ -118,9 +138,6 @@ export function ExpenseSheet({ expense, categories, onClose, onDone }: {
             Изтрий
           </button>
         </div>
-        <button type="button" className="secondary wide" disabled={busy || !online} onClick={() => setAsTemplate(true)}>
-          Запази като шаблон
-        </button>
       </form>
 
       {confirmDelete && (

@@ -92,7 +92,7 @@ export function AdminCategories() {
   }
 
   return (
-    <div>
+    <div className="admin-pane">
       <Notice text={notice} onDismiss={() => setNotice('')} />
       {cats.error && cats.data === null ? (
         <ErrorBox message={cats.error} onRetry={cats.refetch} />

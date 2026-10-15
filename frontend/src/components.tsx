@@ -45,7 +45,18 @@ function useExit(onClose: () => void) {
   return { closing, requestClose };
 }
 
-export function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+// `pinned`: the sheet has a .sheet-scroll area and a .sheet-actions footer that stays in view.
+export function Sheet({
+  title,
+  onClose,
+  pinned,
+  children,
+}: {
+  title: string;
+  onClose: () => void;
+  pinned?: boolean;
+  children: ReactNode;
+}) {
   const { closing, requestClose } = useExit(onClose);
   const closeRef = useRef(requestClose);
   closeRef.current = requestClose;
@@ -68,7 +79,7 @@ export function Sheet({ title, onClose, children }: { title: string; onClose: ()
 
   return (
     <div className={closing ? 'overlay closing' : 'overlay'} onMouseDown={(e) => e.target === e.currentTarget && requestClose()}>
-      <section className="sheet" role="dialog" aria-modal="true" aria-label={title} ref={panel} tabIndex={-1}>
+      <section className={pinned ? 'sheet sheet--pinned' : 'sheet'} role="dialog" aria-modal="true" aria-label={title} ref={panel} tabIndex={-1}>
         <div className="sheet-grip" aria-hidden="true" />
         <header className="sheet-head">
           <h2>{title}</h2>
@@ -76,7 +87,7 @@ export function Sheet({ title, onClose, children }: { title: string; onClose: ()
             <IconClose />
           </button>
         </header>
-        {children}
+        <div className="sheet-body">{children}</div>
       </section>
     </div>
   );

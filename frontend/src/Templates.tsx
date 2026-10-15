@@ -75,6 +75,7 @@ export function TemplateForm({ draft, categories, onSaved, onDeleted }: {
 
   return (
     <form onSubmit={save} noValidate>
+      <div className="sheet-scroll">
       <label htmlFor="t-title">Описание</label>
       <input id="t-title" type="text" maxLength={100} autoComplete="off" autoFocus={!draft.title} value={title} onChange={(e) => setTitle(e.target.value)} />
       <label htmlFor="t-amount">Сума (€), по избор</label>
@@ -94,6 +95,7 @@ export function TemplateForm({ draft, categories, onSaved, onDeleted }: {
 
       <p className="error" role="alert">{error}</p>
       {!online && <p className="muted">Няма връзка — промените са изключени.</p>}
+      </div>
       <div className="sheet-actions">
         <button type="submit" className="primary save" disabled={busy || !online}>
           {busy ? 'Записвам…' : 'Запази'}
@@ -146,7 +148,7 @@ export function TemplatesSheet({ categories, onClose }: { categories: Category[]
       list.refetch();
     };
     return (
-      <Sheet title={editing.id ? 'Шаблон' : 'Нов шаблон'} onClose={() => setEditing(null)}>
+      <Sheet pinned title={editing.id ? 'Шаблон' : 'Нов шаблон'} onClose={() => setEditing(null)}>
         <TemplateForm draft={editing} categories={categories} onSaved={back} onDeleted={back} />
       </Sheet>
     );
