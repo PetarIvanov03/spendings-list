@@ -16,7 +16,7 @@ export function ListScreen({ user }: { user: Session['user'] }) {
   const family = seesFamily(user.role); // cosmetic: RLS decides which rows come back
   const toast = useToast();
   const [month, setMonth] = useState(currentMonth);
-  const [who, setWho] = useState<string | null>(null); // admin/parent user filter, null = everyone
+  const [who, setWho] = useState<string | null>(family ? user.name : null); // admin/parent user filter: starts as yourself, null = everyone
   const [cats, setCats] = useState<string[]>([]); // category filter, empty = all (admin/parent)
   const [editing, setEditing] = useState<Expense | null>(null);
   const [notice, setNotice] = useState('');
@@ -44,7 +44,7 @@ export function ListScreen({ user }: { user: Session['user'] }) {
     for (const r of all) if (r.category && !names.includes(r.category)) names.push(r.category);
     return names.map((n) => ({ value: n, label: n }));
   }, [categories, all]);
-  const filtered = who !== null || cats.length > 0;
+  const filtered = who !== (family ? user.name : null) || cats.length > 0;
 
   // Group by day, keeping the server's newest-first order.
   const days = useMemo(() => {
@@ -89,7 +89,7 @@ export function ListScreen({ user }: { user: Session['user'] }) {
             <Dropdown
               label="Човек"
               value={who}
-              defaultValue={null}
+              defaultValue={user.name}
               onChange={setWho}
               options={[{ value: null, label: 'Всички' }, ...(users.data ?? []).map((u) => ({ value: u.name, label: u.name }))]}
             />
