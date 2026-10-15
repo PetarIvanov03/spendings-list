@@ -10,6 +10,9 @@
 -- имейл <име>@spendings.app, парола = 6-цифрен PIN, "Auto Confirm User"),
 -- после направи админ:
 --   update public.profiles set is_admin = true where name = '<име>';
+-- родителите (вижда всичко, редактира само своето):
+--   update public.profiles set is_parent = true where name in ('<майка>', '<баща>');
+-- За вече работеща база използвай migration-parent-role.sql.
 
 -- ============ ТАБЛИЦИ ============
 
@@ -19,7 +22,9 @@ create table public.profiles (
   id         uuid primary key references auth.users(id) on delete cascade,
   name       text not null unique,
   is_admin   boolean not null default false,
-  created_at timestamptz not null default now()
+  is_parent  boolean not null default false,  -- родител: вижда всички разходи, редактира само своите
+  created_at timestamptz not null default now(),
+  constraint profiles_single_role check (not (is_admin and is_parent))
 );
 
 create table public.categories (
@@ -98,6 +103,17 @@ as $$
   select coalesce((select is_admin from public.profiles where id = auth.uid()), false);
 $$;
 
+-- Помощна функция за RLS политиките: родител.
+create or replace function public.is_parent()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $
+  select coalesce((select is_parent from public.profiles where id = auth.uid()), false);
+$;
+
 -- Изтриване в кошчето: собственик или админ.
 create or replace function public.delete_expense(p_id bigint)
 returns void
@@ -124,10 +140,11 @@ alter table public.categories enable row level security;
 alter table public.expenses   enable row level security;
 alter table public.templates  enable row level security;
 
--- profiles: всеки вижда своя, админът всички; променя само админът
+-- profiles: всеки вижда своя, админът и родителите всички; променя само админът
+-- (така никой не може да смени собствената си роля)
 create policy "profiles: read own or admin"
   on public.profiles for select to authenticated
-  using (id = auth.uid() or public.is_admin());
+  using (id = auth.uid() or public.is_admin() or public.is_parent());
 
 create policy "profiles: admin updates"
   on public.profiles for update to authenticated
@@ -152,10 +169,14 @@ create policy "categories: admin delete"
   on public.categories for delete to authenticated
   using (public.is_admin());
 
--- expenses: член вижда само своите неизтрити; админът вижда всичко (и кошчето)
+-- expenses: член вижда само своите неизтрити; родителят - всички неизтрити;
+-- админът вижда всичко (и кошчето)
 create policy "expenses: read"
   on public.expenses for select to authenticated
-  using (public.is_admin() or (user_id = auth.uid() and deleted_at is null));
+  using (
+    public.is_admin()
+    or (deleted_at is null and (user_id = auth.uid() or public.is_parent()))
+  );
 
 create policy "expenses: insert own"
   on public.expenses for insert to authenticated
@@ -186,7 +207,7 @@ create policy "templates: own"
 -- ============ СПРАВКИ ============
 
 -- Суми по потребител x категория x месец (само неизтрити).
--- security_invoker = RLS важи: член вижда само своето, админът - цялото семейство.
+-- security_invoker = RLS важи: член вижда само своето, родителят и админът - цялото семейство.
 create or replace view public.monthly_totals
 with (security_invoker = true) as
 select
@@ -213,8 +234,10 @@ grant usage, select on all sequences in schema public to authenticated;
 
 revoke execute on function public.handle_new_user()       from public, anon, authenticated;
 revoke execute on function public.is_admin()              from public, anon;
+revoke execute on function public.is_parent()             from public, anon;
 revoke execute on function public.delete_expense(bigint)  from public, anon;
 grant  execute on function public.is_admin()              to authenticated;
+grant  execute on function public.is_parent()             to authenticated;
 grant  execute on function public.delete_expense(bigint)  to authenticated;
 
 -- ============ ПО ИЗБОР: НАЧАЛНИ КАТЕГОРИИ ============

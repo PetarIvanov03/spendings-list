@@ -35,6 +35,7 @@ export const IconGear = (p: P) => (
 export const IconMore = (p: P) => <Icon {...p}><path d="M12 5.5h.01M12 12h.01M12 18.5h.01" strokeWidth="3" /></Icon>;
 export const IconClose = (p: P) => <Icon {...p}><path d="M6 6l12 12M18 6L6 18" /></Icon>;
 export const IconCheck = (p: P) => <Icon {...p}><path d="M5 12.5l4.5 4.5L19 7.5" strokeWidth="2.6" /></Icon>;
+export const IconChevronDown = (p: P) => <Icon {...p}><path d="M5.5 9.5L12 16l6.5-6.5" /></Icon>;
 export const IconChevronLeft = (p: P) => <Icon {...p}><path d="M14.5 5.5L8 12l6.5 6.5" /></Icon>;
 export const IconChevronRight = (p: P) => <Icon {...p}><path d="M9.5 5.5L16 12l-6.5 6.5" /></Icon>;
 export const IconArrowUp = (p: P) => <Icon {...p}><path d="M12 19V6M6.5 11.5L12 6l5.5 5.5" /></Icon>;

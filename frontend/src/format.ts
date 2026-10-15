@@ -63,6 +63,20 @@ export function monthLabel(month: string): string {
   return `${MONTHS[m - 1]} ${y}`;
 }
 
+// "окт 2026": short form for tight spaces (filter dropdowns).
+export function monthLabelShort(month: string): string {
+  const [y, m] = month.split('-').map(Number);
+  return `${MONTHS_SHORT[m - 1]} ${y}`;
+}
+
+// The last 24 months, newest first, for a month dropdown (the selected one is always included).
+export function monthOptions(selected: string): { value: string; label: string }[] {
+  const now = currentMonth();
+  const months = Array.from({ length: 24 }, (_, i) => shiftMonth(now, -i));
+  if (!months.includes(selected)) months.push(selected);
+  return months.map((value) => ({ value, label: monthLabel(value) }));
+}
+
 // "ср, 1 окт" (year added when it is not the current one).
 export function dayLabel(date: string): string {
   const [y, m, d] = date.split('-').map(Number);

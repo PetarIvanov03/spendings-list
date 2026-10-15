@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react';
 import { call } from './api';
-import type { Session } from './auth';
+import { seesFamily, type Session } from './auth';
 import { useCategories } from './categories';
-import { ChipRow, Empty, ErrorBox, Loading, MonthSwitcher, Refreshing, StaleNotice } from './components';
-import { currentMonth, formatEur, formatPercent, NEUTRAL_COLOR } from './format';
+import { Empty, ErrorBox, Loading, Refreshing, StaleNotice } from './components';
+import { Dropdown } from './Dropdown';
+import { currentMonth, formatEur, formatPercent, monthOptions, NEUTRAL_COLOR } from './format';
 import type { AdminUser, SummaryData } from './types';
 import { useFetch } from './useFetch';
 
@@ -34,22 +35,22 @@ function Bars({ rows, total, colorOf }: {
 }
 
 export function SummaryScreen({ user }: { user: Session['user'] }) {
-  const isAdmin = user.role === 'admin'; // cosmetic: the server decides what each role may read
+  const family = seesFamily(user.role); // cosmetic: the server decides what each role may read
   const [month, setMonth] = useState(currentMonth);
-  const [who, setWho] = useState<string | null>(null); // admin: null = whole family
+  const [who, setWho] = useState<string | null>(null); // admin/parent: null = whole family
 
   const summary = useFetch(
     () =>
-      isAdmin
+      family
         ? call<SummaryData>('adminSummary', { month, ...(who ? { user: who } : {}) })
         : call<SummaryData>('summary', { month }),
-    [month, who, isAdmin],
+    [month, who, family],
     { name: 'summary', match: `${month}|${who ?? ''}` },
   );
   const categories = useCategories();
   const users = useFetch(
-    () => (isAdmin ? call<AdminUser[]>('adminUsers') : Promise.resolve([])),
-    [isAdmin],
+    () => (family ? call<AdminUser[]>('adminUsers') : Promise.resolve([])),
+    [family],
     { name: 'adminUsers', match: '' },
   );
 
@@ -59,16 +60,18 @@ export function SummaryScreen({ user }: { user: Session['user'] }) {
 
   return (
     <section className="page">
-      <MonthSwitcher month={month} onChange={setMonth} />
-      {isAdmin && (
-        <ChipRow
-          segmented
-          label="Обхват на справката"
-          value={who}
-          onChange={setWho}
-          items={[{ value: null, label: 'Семейство' }, ...(users.data ?? []).map((u) => ({ value: u.name, label: u.name }))]}
-        />
-      )}
+      <div className="dd-row">
+        <Dropdown label="Месец" value={month} defaultValue={currentMonth()} onChange={setMonth} options={monthOptions(month)} />
+        {family && (
+          <Dropdown
+            label="Обхват на справката"
+            value={who}
+            defaultValue={null}
+            onChange={setWho}
+            options={[{ value: null, label: 'Семейство' }, ...(users.data ?? []).map((u) => ({ value: u.name, label: u.name }))]}
+          />
+        )}
+      </div>
 
       <Refreshing show={summary.refreshing} />
       <StaleNotice show={!!summary.error && data !== null} onRetry={summary.refetch} />
@@ -93,7 +96,7 @@ export function SummaryScreen({ user }: { user: Session['user'] }) {
             colorOf={(name) => colors.get(name) ?? NEUTRAL_COLOR}
           />
 
-          {isAdmin && !who && data.byUser && (
+          {family && !who && data.byUser && (
             <>
               <h3 className="section-title">По хора</h3>
               <Bars
