@@ -70,16 +70,23 @@ async function me(): Promise<Profile> {
   if (se) fail(se);
   const uid = s.session?.user.id;
   if (!uid) throw new ApiError('UNAUTHORIZED', 'No session');
-  const { data, error } = await db().from('profiles').select('id,name,is_admin').eq('id', uid).maybeSingle();
+  const { data, error } = await db().from('profiles').select('id,name,is_admin,is_parent').eq('id', uid).maybeSingle();
   if (error) fail(error);
   if (!data) throw new ApiError('UNAUTHORIZED', 'No profile');
-  profile = { id: data.id, name: data.name, role: data.is_admin ? 'admin' : 'member' };
+  profile = { id: data.id, name: data.name, role: data.is_admin ? 'admin' : data.is_parent ? 'parent' : 'member' };
   return profile;
 }
 
 async function requireAdmin(): Promise<Profile> {
   const p = await me();
   if (p.role !== 'admin') throw new ApiError('FORBIDDEN', 'Admin only');
+  return p;
+}
+
+// Admin or parent: the family-wide reads (all members' expenses, family report, names).
+async function requireFamily(): Promise<Profile> {
+  const p = await me();
+  if (p.role === 'member') throw new ApiError('FORBIDDEN', 'Admin or parent only');
   return p;
 }
 
@@ -196,9 +203,10 @@ async function categoryId(name: string): Promise<number> {
 async function listExpenses(p: { month?: string; limit?: number; user?: string } = {}): Promise<Expense[]> {
   const who = await me();
   // deleted_at is ALWAYS filtered: the admin's RLS would otherwise show the trash too.
+  // Members only ever get their own rows; admin and parent see everyone's (RLS enforces it).
   let q = db().from('expenses').select(EXPENSE_COLS).is('deleted_at', null);
   if (p.month) q = q.gte('spent_on', `${p.month}-01`).lt('spent_on', nextMonthStart(p.month));
-  if (who.role !== 'admin') {
+  if (who.role === 'member') {
     q = q.eq('user_id', who.id);
   } else if (p.user) {
     const id = [...(await profileNames())].find(([, n]) => n === p.user)?.[0];
@@ -422,12 +430,12 @@ async function summarize(month: string, opts: { userName?: string; userId?: stri
 // ---- people: read-only (creating users and setting PINs needs a secret key) ----
 
 async function adminUsers(): Promise<AdminUser[]> {
-  await requireAdmin();
-  const { data, error } = await db().from('profiles').select('name,is_admin').order('name');
+  await requireFamily();
+  const { data, error } = await db().from('profiles').select('name,is_admin,is_parent').order('name');
   if (error) fail(error);
-  return (data as { name: string; is_admin: boolean }[]).map((u) => ({
+  return (data as { name: string; is_admin: boolean; is_parent: boolean }[]).map((u) => ({
     name: u.name,
-    role: u.is_admin ? 'admin' : 'member',
+    role: u.is_admin ? 'admin' : u.is_parent ? 'parent' : 'member',
     active: true,
   }));
 }
@@ -473,7 +481,7 @@ export async function backendSend(action: string, payload: unknown): Promise<unk
     case 'deleteExpense': return deleteExpense(p);
     case 'summary': return summarize((p as { month: string }).month, { userId: (await me()).id });
     case 'adminSummary':
-      await requireAdmin();
+      await requireFamily();
       return summarize((p as { month: string }).month, { userName: (p as { user?: string }).user });
     case 'adminUsers': return adminUsers();
     case 'adminCategories': return adminCategories();

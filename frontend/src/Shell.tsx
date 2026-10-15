@@ -60,6 +60,7 @@ export function Shell({ user, onLogout, onPinChanged }: {
           <LogoMark size={28} />
           <span className="who">{user.name}</span>
           {isAdmin && <span className="badge badge-admin">админ</span>}
+          {user.role === 'parent' && <span className="badge badge-admin">родител</span>}
         </span>
         <button className="icon-btn" aria-label="Меню" aria-haspopup="dialog" onClick={() => setMenuOpen(true)}>
           <IconMore />

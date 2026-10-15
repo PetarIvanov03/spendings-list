@@ -1,6 +1,9 @@
 import { store } from './storage';
 
-export type Role = 'admin' | 'member';
+export type Role = 'admin' | 'parent' | 'member';
+
+// Admin and parent read the whole family's expenses and reports. Cosmetic: RLS decides.
+export const seesFamily = (role: Role) => role !== 'member';
 
 // Mirror of who is logged in, for the UI. The real session (tokens, refresh) is kept by
 // supabase-js; an expired one shows up as UNAUTHORIZED on the next request.

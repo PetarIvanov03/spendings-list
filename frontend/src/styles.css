@@ -985,6 +985,17 @@ input[type='color'] {
   }
 }
 
+/* someone else's expense for a parent: shown, not editable */
+.row-static {
+  cursor: default;
+}
+
+@media (hover: hover) {
+  .row-static:hover {
+    background: transparent;
+  }
+}
+
 .row-main {
   display: flex;
   flex-direction: column;

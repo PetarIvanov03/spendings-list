@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { call } from './api';
-import type { Session } from './auth';
+import { seesFamily, type Session } from './auth';
 import { useCategories } from './categories';
 import { CategoryTag, ChipRow, Empty, ErrorBox, Loading, MonthSwitcher, Notice, Refreshing, StaleNotice } from './components';
 import { ExpenseSheet, type SheetOutcome } from './ExpenseSheet';
@@ -12,10 +12,10 @@ import { useFetch } from './useFetch';
 const NO_USER = '(без потребител)';
 
 export function ListScreen({ user }: { user: Session['user'] }) {
-  const isAdmin = user.role === 'admin'; // cosmetic: the server filters members' rows anyway
+  const family = seesFamily(user.role); // cosmetic: RLS decides which rows come back
   const toast = useToast();
   const [month, setMonth] = useState(currentMonth);
-  const [who, setWho] = useState<string | null>(null); // admin user filter, null = everyone
+  const [who, setWho] = useState<string | null>(null); // admin/parent user filter, null = everyone
   const [editing, setEditing] = useState<Expense | null>(null);
   const [notice, setNotice] = useState('');
 
@@ -26,8 +26,8 @@ export function ListScreen({ user }: { user: Session['user'] }) {
   );
   const categories = useCategories();
   const users = useFetch(
-    () => (isAdmin ? call<AdminUser[]>('adminUsers') : Promise.resolve([])),
-    [isAdmin],
+    () => (family ? call<AdminUser[]>('adminUsers') : Promise.resolve([])),
+    [family],
     { name: 'adminUsers', match: '' },
   );
 
@@ -45,6 +45,22 @@ export function ListScreen({ user }: { user: Session['user'] }) {
     }
     return groups;
   }, [rows]);
+
+  // A parent only edits their own rows (RLS refuses the rest); the admin edits everything.
+  const canEdit = (r: Expense) => user.role === 'admin' || r.user === user.name;
+
+  const rowBody = (r: Expense) => (
+    <>
+      <span className="row-main">
+        <span className="row-item">{r.item}</span>
+        <span className="row-meta">
+          <CategoryTag name={r.category} colors={colors} />
+          {family && <span>{r.user || NO_USER}</span>}
+        </span>
+      </span>
+      <span className="row-price">{formatEur(r.price)}</span>
+    </>
+  );
 
   function onDone(outcome: SheetOutcome) {
     setEditing(null);
@@ -65,7 +81,7 @@ export function ListScreen({ user }: { user: Session['user'] }) {
         <Refreshing show={list.refreshing} />
       </div>
 
-      {isAdmin && (
+      {family && (
         <ChipRow
           segmented
           label="Филтър по човек"
@@ -93,16 +109,11 @@ export function ListScreen({ user }: { user: Session['user'] }) {
             <ul className="rows card">
               {day.rows.map((r) => (
                 <li key={r.id}>
-                  <button className="row" onClick={() => setEditing(r)}>
-                    <span className="row-main">
-                      <span className="row-item">{r.item}</span>
-                      <span className="row-meta">
-                        <CategoryTag name={r.category} colors={colors} />
-                        {isAdmin && <span>{r.user || NO_USER}</span>}
-                      </span>
-                    </span>
-                    <span className="row-price">{formatEur(r.price)}</span>
-                  </button>
+                  {canEdit(r) ? (
+                    <button className="row" onClick={() => setEditing(r)}>{rowBody(r)}</button>
+                  ) : (
+                    <div className="row row-static">{rowBody(r)}</div>
+                  )}
                 </li>
               ))}
             </ul>
