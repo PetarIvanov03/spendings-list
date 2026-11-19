@@ -51,7 +51,8 @@ On the login screen, tap one of the people. You can also type a name with **any 
 | After a reload | Your data is there | Starts over |
 | Login | Name + personal PIN | Any demo name + any PIN |
 | Network requests | Supabase only | None |
-| Installable (PWA) | ✅ | ❌ |
+| Installable (PWA) | ✅ blue icon | ✅ a separate app with an orange DEMO icon |
+| Works offline | Saved expenses wait in a queue | ✅ fully, there is no server |
 
 ## 🛠️ How it works
 
@@ -65,5 +66,6 @@ npm run build:demo    # -> dist/demo (the deploy workflow runs it)
 
 - **One swap.** `vite --mode demo` replaces `src/supabase.ts` with [`src/demo/backend.ts`](frontend/src/demo/backend.ts). It answers the same requests from memory, with the same role rules as the database. No screen knows the difference.
 - **No database code.** The demo bundle does not include the Supabase client.
-- **Kept apart from the real app.** Both are served from the same domain, so the demo stores its data under its own prefix (`spend-demo:`). It registers no service worker and has no install manifest, and the real app's service worker ignores `/demo/`.
+- **Kept apart from the real app.** Both are served from the same domain, so the demo stores its data under its own prefix (`spend-demo:`).
+- **Its own installable app.** The demo has its own manifest and icons ([`src/demo/public/`](frontend/src/demo/public/)), scoped to `/spendings-list/demo/`. Phones and browsers treat it as a separate app, so both can be installed side by side. It registers the app's `sw.js` with that narrower scope, and the worker keeps a separate cache per scope (`demo-…` / `spend-…`), so neither ever deletes the other's.
 - **Made-up data only.** The people and the data are generated in [`src/demo/`](frontend/src/demo/). Nothing real ever goes in there, because the repo is public.

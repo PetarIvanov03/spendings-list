@@ -17,9 +17,11 @@ createRoot(document.getElementById('root')!).render(
 
 // Service worker: production only. When a new build takes over, reload once so nobody
 // stays on an old version (skipped on the very first visit, when there is nothing to replace).
-// Not in the demo: it lives inside the real app's scope and must not install a worker there.
-if (import.meta.env.PROD && !IS_DEMO && 'serviceWorker' in navigator) {
+// The demo (base /spendings-list/demo/) registers the app's sw.js one level up with its own,
+// narrower scope: a separate installable app with a separate cache (see sw.js).
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   const base = import.meta.env.BASE_URL;
+  const script = IS_DEMO ? base.replace(/demo\/$/, '') : base;
   const hadController = navigator.serviceWorker.controller !== null;
   let reloaded = false;
   navigator.serviceWorker.addEventListener('controllerchange', () => {
@@ -29,6 +31,6 @@ if (import.meta.env.PROD && !IS_DEMO && 'serviceWorker' in navigator) {
     }
   });
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register(`${base}sw.js?v=${__BUILD_ID__}`, { scope: base }).catch(() => {});
+    navigator.serviceWorker.register(`${script}sw.js?v=${__BUILD_ID__}`, { scope: base }).catch(() => {});
   });
 }

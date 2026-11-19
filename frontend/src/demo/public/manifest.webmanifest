@@ -1,0 +1,18 @@
+{
+  "id": "/spendings-list/demo/",
+  "name": "Разходи – демо",
+  "short_name": "Демо Разходи",
+  "description": "Демо на семейните разходи с измислени данни",
+  "lang": "bg",
+  "start_url": "/spendings-list/demo/",
+  "scope": "/spendings-list/demo/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f6f6f3",
+  "theme_color": "#d9480f",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

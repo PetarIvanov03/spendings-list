@@ -59,7 +59,7 @@ React &nbsp;·&nbsp; TypeScript &nbsp;·&nbsp; Vite &nbsp;·&nbsp; Supabase &nbs
 
 ## 🎮 Demo
 
-**[petarivanov03.github.io/spendings-list/demo](https://petarivanov03.github.io/spendings-list/demo/)** is the full app with made-up data and no database behind it. Log in with one tap as the admin, a parent or a member and try everything. A reload starts over. More in **[DEMO.md](DEMO.md)**.
+**[petarivanov03.github.io/spendings-list/demo](https://petarivanov03.github.io/spendings-list/demo/)** is the full app with made-up data and no database behind it. Log in with one tap as the admin, a parent or a member and try everything. A reload starts over. It also installs as its own app, with an orange DEMO icon. More in **[DEMO.md](DEMO.md)**.
 
 ## 👥 Roles
 
@@ -175,7 +175,7 @@ npm run contrast     # WCAG AA check of every color pair
 ```
 frontend/
   src/               app (screens, data layer, styles)
-  src/demo/          demo backend and made-up people
+  src/demo/          demo backend, made-up people, demo manifest and icons
   public/            icons, manifest, service worker
 supabase/            schema.sql and migrations
 docs/                logo and screenshots for the docs

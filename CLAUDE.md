@@ -70,7 +70,8 @@ Same code, made-up data, no database. `vite --mode demo` (`npm run build:demo` -
 
 - `demo/backend.ts` mirrors `supabase.ts`: same actions, payloads, results and error codes, and the same role rules as RLS (member own rows, parent reads all but edits own, admin all + trash + categories). **Any new action or field in `supabase.ts` goes into `demo/backend.ts` too**, or the demo breaks.
 - Data: seeded generator, about 3 months back from today, kept in memory (a reload starts over). Demo people are in `demo/users.ts` (`maria` admin, `georgi`/`elena` parents, `niki` member); any 6-digit PIN. Only made-up names and amounts: the repo is public.
-- Isolation from the real app (same origin, petarivanov03.github.io): storage prefix `spend-demo:` instead of `spend:`, no service worker in the demo, the real `sw.js` ignores `/demo/`, the demo page has no manifest. The demo bundle must not contain the Supabase client: after a build, `dist/demo/assets/*.js` must not mention `supabase.co`.
+- Isolation from the real app (same origin, petarivanov03.github.io): storage prefix `spend-demo:` instead of `spend:`. The demo bundle must not contain the Supabase client: after a build, `dist/demo/assets/*.js` must not mention `supabase.co`.
+- The demo is its own PWA: `publicDir` in demo mode is `src/demo/public` (manifest with `id`/`scope`/`start_url` `/spendings-list/demo/`, orange "DEMO" icons; no `sw.js` there). `main.tsx` registers the app's `/spendings-list/sw.js` with scope `/spendings-list/demo/`; `sw.js` picks its cache prefix from the scope (`demo-` vs `spend-`) and deletes only its own old caches. Never give both the same prefix: each would wipe the other's cache on update. The root `sw.js` also skips `/demo/` requests.
 - Demo-only UI: `DemoBanner` (Login and Shell) and the one-tap role buttons on Login.
 - `RELEASE_NOTES.md` is only about the real app; the demo is never mentioned there.
 

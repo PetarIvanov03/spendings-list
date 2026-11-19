@@ -4,8 +4,10 @@
 // - Hashed build assets (/assets/*): cache first (their names change with every build).
 // The cache name carries the build id passed as ?v=..., so every release gets a fresh cache
 // and old ones are deleted on activate.
+// The demo registers this same file with the scope /spendings-list/demo/: it gets its own cache
+// prefix, so the app and the demo never delete each other's caches.
 const SCOPE = self.registration.scope; // e.g. https://user.github.io/spendings-list/
-const CACHE_PREFIX = 'spend-';
+const CACHE_PREFIX = SCOPE.endsWith('/demo/') ? 'demo-' : 'spend-';
 const CACHE = CACHE_PREFIX + (new URL(self.location.href).searchParams.get('v') || 'dev');
 const SHELL = ['', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'].map(
   (path) => new URL(path, SCOPE).href,
