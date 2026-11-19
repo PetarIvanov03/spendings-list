@@ -356,7 +356,15 @@ export function AddScreen({ user, active, onShowList }: { user: Session['user'];
         </div>
       </div>
 
-      {manageOpen && <TemplatesSheet categories={categories ?? []} onClose={() => setManageOpen(false)} />}
+      {manageOpen && (
+        <TemplatesSheet
+          categories={categories ?? []}
+          onClose={() => {
+            setManageOpen(false);
+            templates.refetch(); // the chips must use what was just added, edited or deleted
+          }}
+        />
+      )}
     </section>
   );
 }
