@@ -20,7 +20,16 @@ const ICONS: Record<Tab, ReactElement> = {
   admin: <IconGear />,
 };
 
-// Layout for a logged-in user: top bar, the active screen, bottom tab bar.
+// Page heading, shown on desktop only (phones have the tab bar label).
+const TITLES: Record<Tab, string> = {
+  add: 'Нов разход',
+  list: 'Списък',
+  summary: 'Справка',
+  admin: 'Админ',
+};
+
+// Layout for a logged-in user. Phones: top bar, the active screen, bottom tab bar.
+// Desktop (styles.css, min-width 960px): a sidebar replaces both bars.
 // Only the Add screen stays mounted (hidden) so its unsaved fields survive tab switches;
 // the other screens load fresh data each time they open.
 export function Shell({ user, onLogout, onPinChanged }: {
@@ -42,53 +51,99 @@ export function Shell({ user, onLogout, onPinChanged }: {
     ...(isAdmin ? [{ id: 'admin' as Tab, label: 'Админ' }] : []),
   ];
 
+  function open(t: Tab) {
+    markAction(`tab:${t}`);
+    setTab(t);
+  }
+
+  const badge = isAdmin ? (
+    <span className="badge badge-admin">админ</span>
+  ) : user.role === 'parent' ? (
+    <span className="badge badge-admin">родител</span>
+  ) : null;
+
   return (
     <div className="shell">
-      {!online && (
-        <div className="offline" role="status">
-          <IconWifiOff size={18} />
-          Няма връзка. Новите разходи се пазят и се изпращат, когато връзката се върне.
-        </div>
-      )}
-      {retrying && online && (
-        <div className="retrying" role="status">
-          Опитвам пак…
-        </div>
-      )}
-      <header className="topbar">
-        <span className="brand">
-          <LogoMark size={28} />
-          <span className="who">{user.name}</span>
-          {isAdmin && <span className="badge badge-admin">админ</span>}
-          {user.role === 'parent' && <span className="badge badge-admin">родител</span>}
+      <aside className="sidebar">
+        <span className="sidebar-brand">
+          <LogoMark size={32} />
+          Разходи
         </span>
-        <button className="icon-btn" aria-label="Меню" aria-haspopup="dialog" onClick={() => setMenuOpen(true)}>
-          <IconMore />
-        </button>
-      </header>
-
-      <main className="content">
-        <div hidden={tab !== 'add'}>
-          <AddScreen user={user} active={tab === 'add'} />
-        </div>
-        {tab === 'list' && <ListScreen user={user} />}
-        {tab === 'summary' && <SummaryScreen user={user} />}
-        {tab === 'admin' && isAdmin && <AdminScreen />}
-      </main>
-
-      <nav className="tabbar" aria-label="Основна навигация">
-        {tabs.map((t) => (
-          <button
-            key={t.id}
-            className={t.id === tab ? 'tab on' : 'tab'}
-            aria-current={t.id === tab ? 'page' : undefined}
-            onClick={() => { markAction(`tab:${t.id}`); setTab(t.id); }}
-          >
-            <span className="tab-icon">{ICONS[t.id]}</span>
-            <span>{t.label}</span>
+        <nav className="side-nav" aria-label="Основна навигация">
+          {tabs.map((t) => (
+            <button
+              key={t.id}
+              className={t.id === tab ? 'side-link on' : 'side-link'}
+              aria-current={t.id === tab ? 'page' : undefined}
+              onClick={() => open(t.id)}
+            >
+              {ICONS[t.id]}
+              {t.label}
+            </button>
+          ))}
+        </nav>
+        <div className="sidebar-foot">
+          <div className="sidebar-user">
+            <span className="avatar" aria-hidden="true">{user.name.slice(0, 1).toUpperCase()}</span>
+            <span className="who">{user.name}</span>
+            {badge}
+          </div>
+          <button className="side-link" onClick={() => setPinOpen(true)}>
+            <IconKey size={20} /> Смяна на ПИН
           </button>
-        ))}
-      </nav>
+          <button className="side-link" onClick={onLogout}>
+            <IconLogout size={20} /> Изход
+          </button>
+        </div>
+      </aside>
+
+      <div className="main">
+        {!online && (
+          <div className="offline" role="status">
+            <IconWifiOff size={18} />
+            Няма връзка. Новите разходи се пазят и се изпращат, когато връзката се върне.
+          </div>
+        )}
+        {retrying && online && (
+          <div className="retrying" role="status">
+            Опитвам пак…
+          </div>
+        )}
+        <header className="topbar">
+          <span className="brand">
+            <LogoMark size={28} />
+            <span className="who">{user.name}</span>
+            {badge}
+          </span>
+          <button className="icon-btn" aria-label="Меню" aria-haspopup="dialog" onClick={() => setMenuOpen(true)}>
+            <IconMore />
+          </button>
+        </header>
+
+        <main className="content">
+          <h1 className="page-title">{TITLES[tab]}</h1>
+          <div hidden={tab !== 'add'}>
+            <AddScreen user={user} active={tab === 'add'} onShowList={() => open('list')} />
+          </div>
+          {tab === 'list' && <ListScreen user={user} />}
+          {tab === 'summary' && <SummaryScreen user={user} />}
+          {tab === 'admin' && isAdmin && <AdminScreen />}
+        </main>
+
+        <nav className="tabbar" aria-label="Основна навигация">
+          {tabs.map((t) => (
+            <button
+              key={t.id}
+              className={t.id === tab ? 'tab on' : 'tab'}
+              aria-current={t.id === tab ? 'page' : undefined}
+              onClick={() => open(t.id)}
+            >
+              <span className="tab-icon">{ICONS[t.id]}</span>
+              <span>{t.label}</span>
+            </button>
+          ))}
+        </nav>
+      </div>
 
       {menuOpen && (
         <Sheet title={user.name} onClose={() => setMenuOpen(false)}>

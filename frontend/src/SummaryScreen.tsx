@@ -87,29 +87,40 @@ export function SummaryScreen({ user }: { user: Session['user'] }) {
           <div className="card hero big-total">
             <span className="muted">Общо за месеца</span>
             <strong>{formatEur(data.total)}</strong>
+            {data.family !== undefined && data.personal !== undefined && (
+              <div className="split">
+                <span>Лични <strong>{formatEur(data.personal)}</strong></span>
+                <span>Семейни <strong>{formatEur(data.family)}</strong></span>
+              </div>
+            )}
           </div>
 
-          <h3 className="section-title">По категории</h3>
-          <Bars
-            total={data.total}
-            rows={data.byCategory.map((c) => ({ key: c.category, label: c.category, amount: c.total }))}
-            colorOf={(name) => colors.get(name) ?? NEUTRAL_COLOR}
-          />
-
-          {family && !who && data.byUser && (
-            <>
-              <h3 className="section-title">По хора</h3>
+          {/* desktop: two columns when the people section is there */}
+          <div className={family && !who && data.byUser ? 'summary-grid two' : 'summary-grid'}>
+            <div>
+              <h3 className="section-title">По категории</h3>
               <Bars
                 total={data.total}
-                rows={data.byUser.map((u) => ({
-                  key: u.user,
-                  label: u.user || 'Без потребител',
-                  amount: u.total,
-                }))}
-                colorOf={() => 'var(--accent)'}
+                rows={data.byCategory.map((c) => ({ key: c.category, label: c.category, amount: c.total }))}
+                colorOf={(name) => colors.get(name) ?? NEUTRAL_COLOR}
               />
-            </>
-          )}
+            </div>
+
+            {family && !who && data.byUser && (
+              <div>
+                <h3 className="section-title">По хора</h3>
+                <Bars
+                  total={data.total}
+                  rows={data.byUser.map((u) => ({
+                    key: u.user,
+                    label: u.user || 'Без потребител',
+                    amount: u.total,
+                  }))}
+                  colorOf={() => 'var(--accent)'}
+                />
+              </div>
+            )}
+          </div>
         </>
       )}
     </section>

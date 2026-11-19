@@ -247,6 +247,26 @@ export function ChipRow({ items, value, onChange, label, segmented = false }: {
   );
 }
 
+// "Мой | Семеен": who an expense is for. Only a label: who can see the expense does not change.
+export function FamilySwitch({ family, onChange }: { family: boolean; onChange: (family: boolean) => void }) {
+  return (
+    <div className="segmented scope" role="radiogroup" aria-label="За кого е разходът">
+      {[false, true].map((v) => (
+        <button
+          key={String(v)}
+          type="button"
+          role="radio"
+          aria-checked={family === v}
+          className={family === v ? 'filter-chip on' : 'filter-chip'}
+          onClick={() => onChange(v)}
+        >
+          {v ? 'Семеен' : 'Мой'}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 // Colored category chips, one tap to select. The categories passed in are the options.
 // The selected one has a check mark, a heavier weight and a ring: not color alone.
 export function CategoryChips({ categories, selected, onSelect, labelledBy, grid = false }: {

@@ -9,6 +9,7 @@ export interface PendingExpense {
   item: string;
   price: number;
   category: string;
+  family?: boolean; // missing in items queued before the family label existed = "mine"
   createdAt: number; // ms since epoch
   status: 'sending' | 'failed' | 'saved';
   attempt: number; // automatic retry in progress (0 = first try)

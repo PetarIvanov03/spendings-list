@@ -13,6 +13,7 @@
 -- родителите (вижда всичко, редактира само своето):
 --   update public.profiles set is_parent = true where name in ('<майка>', '<баща>');
 -- За вече работеща база използвай migration-parent-role.sql.
+-- Етикет "семеен" (expenses/templates.is_family): migration-family-flag.sql.
 
 -- ============ ТАБЛИЦИ ============
 
@@ -46,6 +47,7 @@ create table public.expenses (
   description text not null default '',
   deleted_at  timestamptz,                    -- не null = в кошчето
   client_id   uuid not null default gen_random_uuid() unique,  -- защита от дубли
+  is_family   boolean not null default false,  -- етикет: за семейството, не лично (видимостта не се променя)
   created_at  timestamptz not null default now()
 );
 
@@ -63,6 +65,7 @@ create table public.templates (
   category_id bigint not null
               references public.categories(id) on update cascade on delete restrict,
   amount      numeric(10,2),                  -- може да е празна
+  is_family   boolean not null default false,
   sort_order  int not null default 0,
   created_at  timestamptz not null default now()
 );
@@ -213,12 +216,13 @@ with (security_invoker = true) as
 select
   user_id,
   category_id,
+  is_family,
   date_trunc('month', spent_on)::date as month,
   sum(amount) as total,
   count(*)    as n
 from public.expenses
 where deleted_at is null
-group by user_id, category_id, date_trunc('month', spent_on)::date;
+group by user_id, category_id, is_family, date_trunc('month', spent_on)::date;
 
 -- ============ ПРАВА ============
 

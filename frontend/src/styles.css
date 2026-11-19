@@ -165,7 +165,7 @@ h2 {
 .row-price,
 .bar-amount,
 .total-line strong,
-.big-total strong,
+.big-total > strong,
 .day-head span:last-child,
 .pending-text,
 .amount-currency {
@@ -1324,7 +1324,7 @@ input[type='color'] {
   font-weight: 600;
 }
 
-.big-total strong {
+.big-total > strong {
   font-size: var(--fs-hero);
   font-weight: 800;
   line-height: 1.1;
@@ -1798,4 +1798,516 @@ input[type='color'] {
 
 .hero.big-total {
   margin-top: var(--sp-3);
+}
+
+/* =====================================================================
+   Personal / family label
+   ===================================================================== */
+/* "Мой | Семеен" switch: shares the date row on Add; wraps under the date on very narrow screens */
+.meta-row {
+  flex-wrap: wrap;
+}
+
+.scope {
+  flex: none;
+  padding: 3px;
+}
+
+.scope .filter-chip {
+  min-height: 38px; /* + 3px track padding each side = 44px tap height */
+  padding: 0 var(--sp-4);
+  font-size: var(--fs-sm);
+}
+
+/* family expense in lists; personal is the default and gets no badge */
+.badge-family {
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+/* admin/parent list filters: 2 x 2 on phones */
+.dd-row.four {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+/* member list: type filter and the total on one row */
+.list-sub {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+}
+
+.list-sub .dd-trigger {
+  width: auto;
+  min-width: 112px;
+}
+
+.list-sub .total-line {
+  gap: var(--sp-2);
+  padding-right: var(--sp-1);
+}
+
+/* summary: personal / family under the big total */
+.split {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--sp-1) var(--sp-5);
+  margin-top: var(--sp-2);
+  color: var(--text-2);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.split strong {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.desktop-only {
+  display: none;
+}
+
+/* =====================================================================
+   Desktop (min-width 960px; useMediaQuery.ts uses the same number).
+   Same screens and components as on phones, laid out for a wide screen:
+   a sidebar instead of the top and bottom bars, wider pages, side-by-side columns,
+   sheets as a right-hand drawer. Nothing above this block changes for phones.
+   ===================================================================== */
+.sidebar,
+.page-title,
+.rows-head {
+  display: none;
+}
+
+@media (min-width: 960px) {
+  :root {
+    --sidebar-w: 248px;
+    --page-max: 1120px;
+  }
+
+  .desktop-only {
+    display: block;
+  }
+
+  /* ---- shell: sidebar + main ---- */
+  .shell {
+    display: grid;
+    grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
+    max-width: none;
+  }
+
+  .topbar,
+  .tabbar {
+    display: none;
+  }
+
+  .content {
+    padding-bottom: 0;
+  }
+
+  .sidebar {
+    position: sticky;
+    top: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-6);
+    height: 100vh;
+    height: 100dvh;
+    padding: var(--sp-6) var(--sp-4) var(--sp-4);
+    border-right: 1px solid var(--line);
+    background: var(--surface-1);
+  }
+
+  .sidebar-brand {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    padding: 0 var(--sp-2);
+    font-size: var(--fs-lg);
+    font-weight: 800;
+  }
+
+  .side-nav {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-1);
+  }
+
+  .side-link {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    width: 100%;
+    min-height: 44px;
+    padding: 0 var(--sp-3);
+    color: var(--text-2);
+    text-align: left;
+  }
+
+  .side-link.on {
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+
+  .side-link:hover:not(.on) {
+    background: var(--surface-2);
+  }
+
+  .sidebar-foot {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-1);
+    margin-top: auto;
+    padding-top: var(--sp-4);
+    border-top: 1px solid var(--line);
+  }
+
+  .sidebar-user {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    min-width: 0;
+    padding: var(--sp-2) var(--sp-3) var(--sp-3);
+  }
+
+  .avatar {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    margin-right: var(--sp-1);
+    border-radius: 50%;
+    background: var(--surface-2);
+    color: var(--text-2);
+    font-weight: 800;
+  }
+
+  /* ---- pages ---- */
+  .page-title {
+    display: block;
+    max-width: var(--page-max);
+    margin: 0 auto;
+    padding: var(--sp-8) var(--sp-10) var(--sp-4);
+  }
+
+  .page {
+    max-width: var(--page-max);
+    padding: var(--sp-2) var(--sp-10) var(--sp-10);
+  }
+
+  /* sheets: a drawer on the right; confirm dialogs stay centred */
+  .overlay:not(.overlay-top) {
+    align-items: stretch;
+    justify-content: flex-end;
+  }
+
+  .sheet {
+    max-width: 460px;
+    height: 100vh;
+    height: 100dvh;
+    max-height: none;
+    padding: var(--sp-4) var(--sp-6) var(--sp-6);
+    border-radius: var(--radius-xl) 0 0 var(--radius-xl);
+    animation-name: drawer-in;
+  }
+
+  .sheet--pinned {
+    padding-bottom: 0;
+  }
+
+  .overlay.closing .sheet {
+    animation-name: drawer-out;
+  }
+
+  .sheet-grip {
+    display: none;
+  }
+
+  .sheet-actions {
+    flex-direction: row-reverse;
+    margin: 0 calc(-1 * var(--sp-6));
+    padding: var(--sp-4) var(--sp-6) var(--sp-6);
+  }
+
+  .sheet-actions button {
+    flex: 1;
+  }
+
+  .toast-slot {
+    top: var(--sp-6);
+    justify-content: flex-end;
+    padding: 0 var(--sp-8);
+  }
+
+  .retrying {
+    top: var(--sp-4);
+    left: calc(50% + var(--sidebar-w) / 2);
+  }
+
+  /* ---- Add: form card on the left, pending + this month on the right ---- */
+  .page.add {
+    padding-bottom: var(--sp-10);
+  }
+
+  .add-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.5fr) minmax(300px, 1fr);
+    align-items: start;
+    gap: var(--sp-6);
+  }
+
+  .add-main {
+    grid-row: 1;
+    grid-column: 1;
+    padding: var(--sp-6);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    background: var(--surface-1);
+    box-shadow: var(--shadow-1);
+  }
+
+  .add-side {
+    position: sticky;
+    top: var(--sp-6);
+    grid-row: 1;
+    grid-column: 2;
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-4);
+  }
+
+  .add-main .amount-field {
+    justify-content: flex-start;
+    margin-top: var(--sp-2);
+  }
+
+  .add-main .amount-field input {
+    text-align: left;
+    font-size: 56px;
+  }
+
+  .chips.grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  }
+
+  .save-bar {
+    position: static;
+    display: flex;
+    align-items: center;
+    gap: var(--sp-4);
+    max-width: none;
+    margin-top: var(--sp-6);
+    padding: 0;
+    transform: none;
+    background: transparent;
+    border: 0;
+  }
+
+  .save-bar .error {
+    flex: 1;
+    margin: 0;
+    text-align: left;
+  }
+
+  .save-bar .save {
+    width: auto;
+    min-width: 220px;
+  }
+
+  .pending {
+    margin: 0;
+  }
+
+  .recent-card {
+    overflow: hidden;
+  }
+
+  .recent-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--sp-3);
+    padding: var(--sp-4) var(--sp-4) var(--sp-3);
+  }
+
+  .recent-head strong {
+    font-size: var(--fs-xl);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .recent-card .rows {
+    border-top: 1px solid var(--line);
+  }
+
+  .recent-card .row {
+    min-height: 52px;
+    padding: var(--sp-2) var(--sp-4);
+  }
+
+  .recent-card .row-meta {
+    font-size: var(--fs-xs);
+  }
+
+  .recent-foot {
+    width: 100%;
+    border-top: 1px solid var(--line);
+    border-radius: 0;
+  }
+
+  /* ---- List: one toolbar row, table-like rows ---- */
+  .list-head {
+    top: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-2) var(--sp-6);
+    margin: calc(-1 * var(--sp-2)) calc(-1 * var(--sp-10)) var(--sp-2);
+    padding: var(--sp-3) var(--sp-10) 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .list-head .refresh-line {
+    flex-basis: 100%;
+  }
+
+  .dd-row.four {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-2);
+  }
+
+  .dd-row.four .dd-trigger {
+    width: auto;
+    min-width: 150px;
+  }
+
+  .list-head .total-line {
+    gap: var(--sp-3);
+    padding: 0;
+  }
+
+  .list-sub {
+    flex: 1;
+    gap: var(--sp-6);
+  }
+
+  .rows-head,
+  .list .rows .row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 200px 120px 96px 120px;
+    align-items: center;
+    gap: var(--sp-4);
+  }
+
+  .list.solo .rows-head,
+  .list.solo .rows .row {
+    grid-template-columns: minmax(0, 1fr) 200px 96px 120px;
+  }
+
+  .rows-head {
+    padding: var(--sp-2) calc(var(--sp-4) + 1px) 0;
+    color: var(--text-3);
+    font-size: var(--fs-xs);
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .rows-head span:last-child {
+    text-align: right;
+  }
+
+  .list .rows .row {
+    min-height: 52px;
+    padding: var(--sp-2) var(--sp-4);
+  }
+
+  /* the two-line phone row becomes table cells, same markup */
+  .list .rows .row-main,
+  .list .rows .row-meta {
+    display: contents;
+  }
+
+  .list .rows .tag {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .list .rows .row-who {
+    grid-column: 3;
+    color: var(--text-2);
+  }
+
+  .list .rows .badge-family {
+    grid-column: 4;
+    justify-self: start;
+  }
+
+  .list .rows .row-price {
+    grid-column: 5;
+    text-align: right;
+  }
+
+  .list.solo .rows .badge-family {
+    grid-column: 3;
+  }
+
+  .list.solo .rows .row-price {
+    grid-column: 4;
+  }
+
+  .day-head {
+    margin: var(--sp-5) var(--sp-1) var(--sp-2);
+  }
+
+  /* ---- Summary ---- */
+  .page > .dd-row {
+    grid-template-columns: repeat(2, minmax(0, 240px));
+  }
+
+  .summary-grid.two {
+    display: grid;
+    grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+    align-items: start;
+    gap: var(--sp-6);
+  }
+
+  .split {
+    gap: var(--sp-1) var(--sp-8);
+    font-size: var(--fs-md);
+  }
+
+  /* ---- Admin: categories and trash side by side ---- */
+  .admin-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+    gap: var(--sp-6);
+  }
+
+  .admin-grid > div > .section-title {
+    margin-top: var(--sp-2);
+  }
+
+  .admin-grid .admin-pane {
+    padding-top: 0;
+  }
+}
+
+@keyframes drawer-in {
+  from {
+    transform: translateX(40px);
+    opacity: 0.6;
+  }
+}
+
+@keyframes drawer-out {
+  to {
+    transform: translateX(40px);
+    opacity: 0;
+  }
 }

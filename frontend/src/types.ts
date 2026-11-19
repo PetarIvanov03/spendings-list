@@ -17,6 +17,7 @@ export interface Expense {
   price: number;
   category: string;
   user: string; // '' for legacy rows
+  family: boolean; // label only: for the family, not personal (default false = "mine")
   createdAt: string;
 }
 
@@ -27,6 +28,7 @@ export interface Template {
   category: string;
   categoryActive: boolean;
   amount: number | null;
+  family: boolean;
   order: number;
 }
 
@@ -42,6 +44,8 @@ export interface AdminUser {
 
 export interface SummaryData {
   total: number;
+  personal?: number; // missing in summaries cached before the family label existed
+  family?: number;
   byCategory: { category: string; total: number }[];
   byUser?: { user: string; total: number }[]; // adminSummary only
   byUserCategory?: { user: string; byCategory: { category: string; total: number }[] }[]; // adminSummary only

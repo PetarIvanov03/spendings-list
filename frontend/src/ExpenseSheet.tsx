@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { call } from './api';
-import { CategoryChips, ConfirmDialog, Sheet } from './components';
+import { CategoryChips, ConfirmDialog, FamilySwitch, Sheet } from './components';
 import { dayLabel, formatEur, NEUTRAL_COLOR, parsePrice, priceToInput } from './format';
 import { useOnline } from './online';
 import type { Category, Expense } from './types';
@@ -25,6 +25,7 @@ export function ExpenseSheet({ expense, categories, onClose, onDone }: {
   const [item, setItem] = useState(expense.item);
   const [date, setDate] = useState(expense.date);
   const [category, setCategory] = useState(expense.category);
+  const [family, setFamily] = useState(expense.family === true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -61,6 +62,7 @@ export function ExpenseSheet({ expense, categories, onClose, onDone }: {
     if (text !== expense.item) patch.item = text;
     if (date !== expense.date) patch.date = date;
     if (category !== expense.category) patch.category = category;
+    if (family !== (expense.family === true)) patch.family = family;
     if (Object.keys(patch).length === 0) return onClose();
 
     void send(() => call('updateExpense', { id: expense.id, ...patch }), { kind: 'saved' });
@@ -74,6 +76,7 @@ export function ExpenseSheet({ expense, categories, onClose, onDone }: {
             title: expense.item,
             category: categories.some((c) => c.name === expense.category) ? expense.category : null,
             amount: priceToInput(expense.price),
+            family,
           }}
           categories={categories}
           onSaved={() => setAsTemplate(false)}
@@ -121,6 +124,8 @@ export function ExpenseSheet({ expense, categories, onClose, onDone }: {
             }}
           />
         </div>
+        <span className="label">За кого</span>
+        <FamilySwitch family={family} onChange={setFamily} />
         <span className="label" id="e-cat">Категория</span>
         <CategoryChips categories={options} selected={category} onSelect={setCategory} labelledBy="e-cat" grid />
 

@@ -18,7 +18,9 @@ Screenshots: put images in docs/screenshots/ (use demo data only, never real exp
 
 - **Fast entry:** add an expense with amount, category, date and description.
 - **Personal templates:** repeating expenses (rent, subscriptions, phone bills) become one-tap chips; amount and description stay editable before saving.
+- **Personal or family:** every expense is marked "mine" (the default) or "family", e.g. fuel for my car vs. a family dinner; lists can filter by it and reports split the total.
 - **Monthly reports:** totals by member, by category, by both, and for the whole family.
+- **Phone and desktop:** built for phones; on a wide screen the same app gets a sidebar, side-by-side columns and a table-like list.
 - **Roles:** members see only their own expenses; parents see the whole family's expenses and reports but change only their own; the admin sees and manages everything.
 - **Trash:** deleting an expense moves it to a trash; the admin can restore it or delete it permanently.
 - **Category management (admin):** add, rename, reorder, and hide categories without losing history.

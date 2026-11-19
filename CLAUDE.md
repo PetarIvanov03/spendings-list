@@ -14,9 +14,10 @@ Priorities: **dead simple daily use** (add an expense in ~3 taps), low maintenan
 
 - `profiles(id = auth.uid(), name, is_admin, is_parent)` (never both true; migration `supabase/migration-parent-role.sql`)
 - `categories(id bigint, name, active, sort_order)` (no color column: the frontend picks a color per category id)
-- `expenses(id bigint, user_id default auth.uid(), category_id, amount numeric, spent_on date, description, deleted_at, created_at, client_id uuid not null default gen_random_uuid() unique)`
-- `templates(id bigint, user_id default auth.uid(), title, category_id, amount numeric null, sort_order, created_at)`: personal; RLS gives each user (admin too) only their own
-- view `monthly_totals(user_id, category_id, month date, total, n)`: only non-deleted rows, RLS applies
+- `expenses(id bigint, user_id default auth.uid(), category_id, amount numeric, spent_on date, description, deleted_at, created_at, client_id uuid not null default gen_random_uuid() unique, is_family boolean not null default false)`
+- `templates(id bigint, user_id default auth.uid(), title, category_id, amount numeric null, is_family, sort_order, created_at)`: personal; RLS gives each user (admin too) only their own
+- view `monthly_totals(user_id, category_id, is_family, month date, total, n)`: only non-deleted rows, RLS applies
+- `is_family` (migration `supabase/migration-family-flag.sql`) is only a label "for the family, not for me" (UI: "Мой | Семеен", default "Мой"). It does NOT change who can see or edit a row.
 - function `delete_expense(p_id bigint)`: soft delete (sets `deleted_at`)
 
 RLS: members see and change only their own expenses; a **parent** reads all non-deleted expenses (and the family `monthly_totals`) but inserts, edits and soft-deletes only their own, with no trash and no categories; the admin reads all and manages categories and the trash. Only an admin can update `profiles`, so nobody can change a role from the app. Anything else is refused by the database, so hiding admin UI from members is only cosmetic.
@@ -53,13 +54,14 @@ When a new expense is first saved on the Add screen, `crypto.randomUUID()` is ge
 
 ## Frontend
 
-- **Target viewport: 360 CSS px wide**, mobile-first, tap targets >= 44px, bottom tab bar. UI language **Bulgarian**; code, comments and identifiers in English. Currency EUR via `Intl.NumberFormat('bg-BG', ...)`.
+- **Target viewport: 360 CSS px wide**, mobile-first, tap targets >= 44px, bottom tab bar. The family uses iPhone SE (375x667), iPhone 13, Redmi Note 8 Pro and Honor 600 Smart: check UI changes at 360-393 px and on a short screen; do not add rows to the Add screen.
+- **Desktop** (`@media (min-width: 960px)`, the last block of `styles.css`; `useDesktop()` in `useMediaQuery.ts` uses the same number): sidebar instead of top/bottom bars, page headings, Add as form card + side column (pending strip, this month's own expenses), List as table-like rows (same markup, `display: contents`), sheets as a right drawer, Summary and Admin in two columns. Phones are untouched by it. UI language **Bulgarian**; code, comments and identifiers in English. Currency EUR via `Intl.NumberFormat('bg-BG', ...)`.
 - Roles in the UI (`auth.ts`): `admin`, `parent` (badge "родител"), `member`; `seesFamily(role)` = admin or parent. Parents see everyone's expenses, others' rows are read-only, no Admin tab. Filters for admin/parent in List: member, month, category (multi) as compact dropdowns (`Dropdown.tsx`, panel portaled and kept on screen); Summary uses the same dropdowns for month and scope.
-- Screens: Login, Add (price, item, date, category chips; instant save into a "pending" strip that sends in the background), List (month, edit, delete), Summary (month, total, per-category bars; admin: family or one person), Admin tab (admin only): **Категории** and **Кошче**. Own-PIN change in the menu.
+- Screens: Login, Add (price, item, date, "Мой | Семеен", category chips; instant save into a "pending" strip that sends in the background), List (month, type filter, "семеен" badge, edit, delete), Summary (month, total with personal/family split, per-category bars; admin: family or one person), Admin tab (admin only): **Категории** and **Кошче**. Own-PIN change in the menu.
 - **Design system** (visual only): tokens at the top of `styles.css` (light/dark via `prefers-color-scheme`), system fonts, inline SVG icons, no icon library, no CSS framework. `npm run contrast` checks WCAG AA for every token pair and category chip color; run it after changing a color. Skeleton loading states, `prefers-reduced-motion` respected.
 - **Stale-while-revalidate** (`cache.ts`, `useFetch.ts`): categories, the current month's list and last viewed list/summary are cached in memory and localStorage, scoped by user name, cleared on logout and `UNAUTHORIZED`. After a write the caches are marked stale, not dropped. PINs are never cached.
 - **PWA**: `manifest.webmanifest`, minimal `sw.js` that caches only the static app shell, never cross-origin or non-GET requests (so never Supabase calls); registered only in production as `sw.js?v=<build id>`.
-- Layout (`frontend/src`): `api.ts`, `supabase.ts`, `config.ts`, `auth.ts`, `storage.ts`, `messages.ts`, `write.ts`, `bootstrap.ts`, `App.tsx`, `Shell.tsx`, screens (`Login`, `AddScreen`, `ListScreen` + `ExpenseSheet`, `SummaryScreen`, `AdminScreen` -> `AdminCategories`, `AdminTrash`), shared (`components.tsx`, `icons.tsx`, `PinPad.tsx`, `useFetch.ts`, `categories.ts`, `online.tsx`, `toast.tsx`, `format.ts`, `types.ts`).
+- Layout (`frontend/src`): `api.ts`, `supabase.ts`, `config.ts`, `auth.ts`, `storage.ts`, `messages.ts`, `write.ts`, `bootstrap.ts`, `App.tsx`, `Shell.tsx`, screens (`Login`, `AddScreen`, `ListScreen` + `ExpenseSheet`, `SummaryScreen`, `AdminScreen` -> `AdminCategories`, `AdminTrash`), shared (`components.tsx`, `icons.tsx`, `PinPad.tsx`, `useFetch.ts`, `useMediaQuery.ts`, `categories.ts`, `online.tsx`, `toast.tsx`, `format.ts`, `types.ts`).
 - Dependencies stay minimal: React, Vite, TypeScript, `@supabase/supabase-js` (exact version). Ask before adding more.
 
 ## Deployment

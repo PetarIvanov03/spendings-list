@@ -12,12 +12,21 @@ import { useFetch } from './useFetch';
 
 const NO_USER = '(без потребител)';
 
+// Type filter: null = both, else only personal / only family expenses.
+type Kind = 'personal' | 'family' | null;
+const KIND_OPTIONS: { value: Kind; label: string }[] = [
+  { value: null, label: 'Лични и семейни' },
+  { value: 'personal', label: 'Само лични' },
+  { value: 'family', label: 'Само семейни' },
+];
+
 export function ListScreen({ user }: { user: Session['user'] }) {
   const family = seesFamily(user.role); // cosmetic: RLS decides which rows come back
   const toast = useToast();
   const [month, setMonth] = useState(currentMonth);
   const [who, setWho] = useState<string | null>(family ? user.name : null); // admin/parent user filter: starts as yourself, null = everyone
   const [cats, setCats] = useState<string[]>([]); // category filter, empty = all (admin/parent)
+  const [kind, setKind] = useState<Kind>(null);
   const [editing, setEditing] = useState<Expense | null>(null);
   const [notice, setNotice] = useState('');
 
@@ -35,8 +44,14 @@ export function ListScreen({ user }: { user: Session['user'] }) {
 
   const colors = useMemo(() => new Map((categories ?? []).map((c) => [c.name, c.color])), [categories]);
   const all = list.data ?? [];
-  // Filters combine (AND): the member filter is applied by the server, the category one here.
-  const rows = useMemo(() => (cats.length ? all.filter((r) => cats.includes(r.category)) : all), [all, cats]);
+  // Filters combine (AND): the member filter is applied by the server, category and type here.
+  const rows = useMemo(
+    () =>
+      all.filter(
+        (r) => (cats.length === 0 || cats.includes(r.category)) && (kind === null || (kind === 'family') === (r.family === true)),
+      ),
+    [all, cats, kind],
+  );
   const total = sumPrices(rows.map((r) => r.price));
   // Active categories, plus any inactive one that old expenses of this month still use.
   const categoryOptions = useMemo(() => {
@@ -44,7 +59,24 @@ export function ListScreen({ user }: { user: Session['user'] }) {
     for (const r of all) if (r.category && !names.includes(r.category)) names.push(r.category);
     return names.map((n) => ({ value: n, label: n }));
   }, [categories, all]);
-  const filtered = who !== (family ? user.name : null) || cats.length > 0;
+  const filtered = who !== (family ? user.name : null) || cats.length > 0 || kind !== null;
+  const kindDropdown = (
+    <Dropdown
+      label="Тип"
+      value={kind}
+      // short closed labels: for members it shares a row with the total on 360px phones
+      text={kind === 'family' ? 'Семейни' : kind === 'personal' ? 'Лични' : family ? 'Лични и семейни' : 'Всички'}
+      defaultValue={null}
+      onChange={setKind}
+      options={KIND_OPTIONS}
+    />
+  );
+  const totalLine = (
+    <div className="total-line">
+      <span>Общо</span>
+      {list.data === null ? <span className="skeleton" style={{ width: 96, height: 24 }} /> : <strong>{formatEur(total)}</strong>}
+    </div>
+  );
 
   // Group by day, keeping the server's newest-first order.
   const days = useMemo(() => {
@@ -66,7 +98,8 @@ export function ListScreen({ user }: { user: Session['user'] }) {
         <span className="row-item">{r.item}</span>
         <span className="row-meta">
           <CategoryTag name={r.category} colors={colors} />
-          {family && <span>{r.user || NO_USER}</span>}
+          {family && <span className="row-who">{r.user || NO_USER}</span>}
+          {r.family && <span className="badge badge-family">семеен</span>}
         </span>
       </span>
       <span className="row-price">{formatEur(r.price)}</span>
@@ -82,10 +115,10 @@ export function ListScreen({ user }: { user: Session['user'] }) {
   }
 
   return (
-    <section className="page">
+    <section className={family ? 'page list' : 'page list solo'}>
       <div className="list-head">
         {family ? (
-          <div className="dd-row three">
+          <div className="dd-row four">
             <Dropdown
               label="Човек"
               value={who}
@@ -102,21 +135,35 @@ export function ListScreen({ user }: { user: Session['user'] }) {
               options={monthOptions(month)}
             />
             <MultiDropdown label="Категория" options={categoryOptions} selected={cats} onChange={setCats} noun="категории" />
+            {kindDropdown}
           </div>
         ) : (
           <>
             <MonthSwitcher month={month} onChange={setMonth} />
-            <div className="total-line">
-              <span>Общо за месеца</span>
-              {list.data === null ? <span className="skeleton" style={{ width: 96, height: 24 }} /> : <strong>{formatEur(total)}</strong>}
+            <div className="list-sub">
+              {kindDropdown}
+              {totalLine}
             </div>
           </>
         )}
+        {/* admin/parent: the total only on desktop (on phones the filters take that room) */}
+        {family && <div className="desktop-only">{totalLine}</div>}
         <Refreshing show={list.refreshing} />
       </div>
 
       <StaleNotice show={!!list.error && list.data !== null} onRetry={list.refetch} />
       <Notice text={notice} onDismiss={() => setNotice('')} />
+
+      {/* desktop: column headings for the table-like rows */}
+      {days.length > 0 && (
+        <div className="rows-head" aria-hidden="true">
+          <span>Описание</span>
+          <span>Категория</span>
+          {family && <span>Човек</span>}
+          <span>Тип</span>
+          <span>Сума</span>
+        </div>
+      )}
 
       {list.error && list.data === null ? (
         <ErrorBox message={list.error} onRetry={list.refetch} />

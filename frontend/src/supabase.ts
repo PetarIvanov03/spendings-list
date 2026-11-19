@@ -170,9 +170,9 @@ async function renameCategory(p: { oldName: string; newName: string }): Promise<
 
 interface ExpenseRow {
   id: number; user_id: string; category_id: number; amount: number | string;
-  spent_on: string; description: string; created_at: string;
+  spent_on: string; description: string; created_at: string; is_family: boolean;
 }
-const EXPENSE_COLS = 'id,user_id,category_id,amount,spent_on,description,created_at';
+const EXPENSE_COLS = 'id,user_id,category_id,amount,spent_on,description,created_at,is_family';
 
 async function profileNames(): Promise<Map<string, string>> {
   const { data, error } = await db().from('profiles').select('id,name');
@@ -190,6 +190,7 @@ async function mapExpenses(rows: ExpenseRow[]): Promise<Expense[]> {
     price: Number(r.amount),
     category: catName.get(r.category_id) ?? '',
     user: names.get(r.user_id) ?? '',
+    family: r.is_family === true,
     createdAt: r.created_at,
   }));
 }
@@ -223,14 +224,21 @@ async function listExpenses(p: { month?: string; limit?: number; user?: string }
 // clientId makes the insert idempotent: expenses.client_id is unique, so a repeat of the same
 // expense (retry, resend after reconnect, reload) fails with 23505. That means "already saved":
 // the existing row is fetched and returned like a normal insert. client_id never leaves here.
-async function addExpense(p: { date: string; item: string; price: number; category: string; clientId: string; forUser?: string }): Promise<Expense> {
+async function addExpense(p: { date: string; item: string; price: number; category: string; family?: boolean; clientId: string; forUser?: string }): Promise<Expense> {
   const who = await me();
   // A queued expense belongs to the user who made it: a retry that fires after someone else
   // logged in must not be written under the new account.
   if (p.forUser && p.forUser !== who.name) throw new ApiError('FORBIDDEN', 'queued for a different user');
   const { data, error } = await db()
     .from('expenses')
-    .insert({ category_id: await categoryId(p.category), amount: p.price, spent_on: p.date, description: p.item, client_id: p.clientId })
+    .insert({
+      category_id: await categoryId(p.category),
+      amount: p.price,
+      spent_on: p.date,
+      description: p.item,
+      is_family: p.family === true,
+      client_id: p.clientId,
+    })
     .select(EXPENSE_COLS)
     .single();
   if (!error) return (await mapExpenses([data as ExpenseRow]))[0];
@@ -241,9 +249,10 @@ async function addExpense(p: { date: string; item: string; price: number; catego
   return (await mapExpenses([existing.data as ExpenseRow]))[0];
 }
 
-async function updateExpense(p: { id: string; date?: string; item?: string; price?: number; category?: string }): Promise<Expense> {
+async function updateExpense(p: { id: string; date?: string; item?: string; price?: number; category?: string; family?: boolean }): Promise<Expense> {
   await me();
   const patch: Record<string, unknown> = {};
+  if (p.family !== undefined) patch.is_family = p.family;
   if (p.date !== undefined) patch.spent_on = p.date;
   if (p.item !== undefined) patch.description = p.item;
   if (p.price !== undefined) patch.amount = p.price;
@@ -268,8 +277,8 @@ async function deleteExpense(p: { id: string }): Promise<{ id: string }> {
 
 // ---- personal templates (RLS: each user sees and changes only their own) ----
 
-interface TemplateRow { id: number; title: string; category_id: number; amount: number | string | null; sort_order: number }
-const TEMPLATE_COLS = 'id,title,category_id,amount,sort_order';
+interface TemplateRow { id: number; title: string; category_id: number; amount: number | string | null; sort_order: number; is_family: boolean }
+const TEMPLATE_COLS = 'id,title,category_id,amount,sort_order,is_family';
 
 async function toTemplates(rows: TemplateRow[]): Promise<Template[]> {
   const cats = new Map((await allCategories()).map((c) => [c.id, c]));
@@ -279,6 +288,7 @@ async function toTemplates(rows: TemplateRow[]): Promise<Template[]> {
     category: cats.get(r.category_id)?.name ?? '',
     categoryActive: cats.get(r.category_id)?.active ?? false,
     amount: r.amount === null ? null : Number(r.amount),
+    family: r.is_family === true,
     order: r.sort_order,
   }));
 }
@@ -299,25 +309,32 @@ async function templates(): Promise<Template[]> {
   return toTemplates(data as TemplateRow[]);
 }
 
-async function addTemplate(p: { title: string; category: string; amount: number | null }): Promise<Template> {
+async function addTemplate(p: { title: string; category: string; amount: number | null; family?: boolean }): Promise<Template> {
   const who = await me();
   const title = checkTemplate(p);
   const max = Math.max(0, ...(await templates()).map((t) => t.order));
   const { data, error } = await db()
     .from('templates')
-    .insert({ title, category_id: await categoryId(p.category), amount: p.amount, sort_order: max + 1, user_id: who.id })
+    .insert({
+      title,
+      category_id: await categoryId(p.category),
+      amount: p.amount,
+      is_family: p.family === true,
+      sort_order: max + 1,
+      user_id: who.id,
+    })
     .select(TEMPLATE_COLS)
     .single();
   if (error) fail(error);
   return (await toTemplates([data as TemplateRow]))[0];
 }
 
-async function updateTemplate(p: { id: string; title: string; category: string; amount: number | null }): Promise<Template> {
+async function updateTemplate(p: { id: string; title: string; category: string; amount: number | null; family?: boolean }): Promise<Template> {
   const who = await me();
   const title = checkTemplate(p);
   const { data, error } = await db()
     .from('templates')
-    .update({ title, category_id: await categoryId(p.category), amount: p.amount })
+    .update({ title, category_id: await categoryId(p.category), amount: p.amount, is_family: p.family === true })
     .eq('id', Number(p.id))
     .eq('user_id', who.id)
     .select(TEMPLATE_COLS);
@@ -396,9 +413,9 @@ async function summarize(month: string, opts: { userName?: string; userId?: stri
   let userId = opts.userId;
   if (opts.userName) {
     userId = [...names].find(([, n]) => n === opts.userName)?.[0];
-    if (!userId) return { total: 0, byCategory: [], byUser: [], byUserCategory: [] };
+    if (!userId) return { total: 0, personal: 0, family: 0, byCategory: [], byUser: [], byUserCategory: [] };
   }
-  let q = db().from('monthly_totals').select('user_id,category_id,total').eq('month', `${month}-01`);
+  let q = db().from('monthly_totals').select('user_id,category_id,is_family,total').eq('month', `${month}-01`);
   if (userId) q = q.eq('user_id', userId);
   const { data, error } = await q;
   if (error) fail(error);
@@ -408,11 +425,13 @@ async function summarize(month: string, opts: { userName?: string; userId?: stri
   const byUser = new Map<string, number>();
   const byUserCat = new Map<string, Map<string, number>>();
   let total = 0;
-  for (const r of data as { user_id: string; category_id: number; total: number | string }[]) {
+  let family = 0;
+  for (const r of data as { user_id: string; category_id: number; is_family: boolean; total: number | string }[]) {
     const t = Number(r.total);
     const c = catName.get(r.category_id) ?? '';
     const u = names.get(r.user_id) ?? '';
     total += t;
+    if (r.is_family) family += t;
     byCat.set(c, (byCat.get(c) ?? 0) + t);
     byUser.set(u, (byUser.get(u) ?? 0) + t);
     const m = byUserCat.get(u) ?? new Map<string, number>();
@@ -421,6 +440,8 @@ async function summarize(month: string, opts: { userName?: string; userId?: stri
   }
   return {
     total: round2(total),
+    personal: round2(total - family),
+    family: round2(family),
     byCategory: sorted(byCat, 'category'),
     byUser: sorted(byUser, 'user'),
     byUserCategory: [...byUserCat].map(([user, m]) => ({ user, byCategory: sorted(m, 'category') })),

@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { call } from './api';
-import { CategoryChips, ConfirmDialog, Empty, ErrorBox, Loading, Notice, Sheet } from './components';
+import { CategoryChips, ConfirmDialog, Empty, ErrorBox, FamilySwitch, Loading, Notice, Sheet } from './components';
 import { formatEur, parsePrice, priceToInput } from './format';
 import { IconArrowDown, IconArrowUp, IconEdit } from './icons';
 import { useOnline } from './online';
@@ -14,6 +14,7 @@ export interface TemplateDraft {
   title: string;
   category: string | null;
   amount: string; // as typed; '' = no amount
+  family: boolean;
 }
 
 const draftFromTemplate = (t: Template): TemplateDraft => ({
@@ -21,6 +22,7 @@ const draftFromTemplate = (t: Template): TemplateDraft => ({
   title: t.title,
   category: t.categoryActive ? t.category : null,
   amount: t.amount === null ? '' : priceToInput(t.amount),
+  family: t.family === true,
 });
 
 // Form for one template. The parent puts it inside a Sheet and decides what happens after.
@@ -35,6 +37,7 @@ export function TemplateForm({ draft, categories, onSaved, onDeleted }: {
   const [title, setTitle] = useState(draft.title);
   const [category, setCategory] = useState(draft.category);
   const [amount, setAmount] = useState(draft.amount);
+  const [family, setFamily] = useState(draft.family);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -49,7 +52,7 @@ export function TemplateForm({ draft, categories, onSaved, onDeleted }: {
     if (!category) return setError('Избери категория.');
     setBusy(true);
     setError('');
-    const payload = { title: text, category, amount: value };
+    const payload = { title: text, category, amount: value, family };
     const r = await runWrite(() =>
       draft.id ? call('updateTemplate', { id: draft.id, ...payload }) : call('addTemplate', payload),
     );
@@ -90,6 +93,8 @@ export function TemplateForm({ draft, categories, onSaved, onDeleted }: {
           if (/^\d*[.,]?\d{0,2}$/.test(e.target.value)) setAmount(e.target.value);
         }}
       />
+      <span className="label">За кого</span>
+      <FamilySwitch family={family} onChange={setFamily} />
       <span className="label" id="t-cat">Категория</span>
       <CategoryChips categories={categories} selected={category} onSelect={setCategory} labelledBy="t-cat" grid />
 
@@ -171,6 +176,7 @@ export function TemplatesSheet({ categories, onClose }: { categories: Category[]
                 <strong>{t.title}</strong>
                 <span className="muted">
                   {t.category} · {t.amount === null ? '—' : formatEur(t.amount)}
+                  {t.family && ' · семеен'}
                 </span>
               </span>
               <span className="row-actions">
@@ -188,7 +194,7 @@ export function TemplatesSheet({ categories, onClose }: { categories: Category[]
           ))}
         </ul>
       )}
-      <button className="primary save" disabled={busy || !online} onClick={() => setEditing({ title: '', category: null, amount: '' })}>
+      <button className="primary save" disabled={busy || !online} onClick={() => setEditing({ title: '', category: null, amount: '', family: false })}>
         Нов шаблон
       </button>
     </Sheet>
