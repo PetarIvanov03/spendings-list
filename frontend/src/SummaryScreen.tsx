@@ -57,6 +57,8 @@ export function SummaryScreen({ user }: { user: Session['user'] }) {
   // Only active categories have a color; inactive or removed ones stay neutral.
   const colors = useMemo(() => new Map((categories ?? []).map((c) => [c.name, c.color])), [categories]);
   const data = summary.data;
+  // Missing in summaries cached before the family label existed.
+  const hasSplit = data !== null && data.personal !== undefined && data.family !== undefined;
 
   return (
     <section className="page">
@@ -87,16 +89,16 @@ export function SummaryScreen({ user }: { user: Session['user'] }) {
           <div className="card hero big-total">
             <span className="muted">Общо за месеца</span>
             <strong>{formatEur(data.total)}</strong>
-            {data.family !== undefined && data.personal !== undefined && (
+            {hasSplit && (
               <div className="split">
-                <span>Лични <strong>{formatEur(data.personal)}</strong></span>
-                <span>Семейни <strong>{formatEur(data.family)}</strong></span>
+                <span>Лични <strong>{formatEur(data.personal ?? 0)}</strong></span>
+                <span>Семейни <strong>{formatEur(data.family ?? 0)}</strong></span>
               </div>
             )}
           </div>
 
-          {/* desktop: two columns when the people section is there */}
-          <div className={family && !who && data.byUser ? 'summary-grid two' : 'summary-grid'}>
+          {/* desktop: categories on the left, people and personal/family on the right */}
+          <div className={(family && !who && data.byUser) || hasSplit ? 'summary-grid two' : 'summary-grid'}>
             <div>
               <h3 className="section-title">По категории</h3>
               <Bars
@@ -106,20 +108,35 @@ export function SummaryScreen({ user }: { user: Session['user'] }) {
               />
             </div>
 
-            {family && !who && data.byUser && (
-              <div>
-                <h3 className="section-title">По хора</h3>
-                <Bars
-                  total={data.total}
-                  rows={data.byUser.map((u) => ({
-                    key: u.user,
-                    label: u.user || 'Без потребител',
-                    amount: u.total,
-                  }))}
-                  colorOf={() => 'var(--accent)'}
-                />
-              </div>
-            )}
+            <div>
+              {family && !who && data.byUser && (
+                <>
+                  <h3 className="section-title">По хора</h3>
+                  <Bars
+                    total={data.total}
+                    rows={data.byUser.map((u) => ({
+                      key: u.user,
+                      label: u.user || 'Без потребител',
+                      amount: u.total,
+                    }))}
+                    colorOf={() => 'var(--accent)'}
+                  />
+                </>
+              )}
+              {hasSplit && (
+                <>
+                  <h3 className="section-title">Лични / семейни</h3>
+                  <Bars
+                    total={data.total}
+                    rows={[
+                      { key: 'personal', label: 'Лични', amount: data.personal ?? 0 },
+                      { key: 'family', label: 'Семейни', amount: data.family ?? 0 },
+                    ].sort((a, b) => b.amount - a.amount)}
+                    colorOf={(key) => (key === 'family' ? 'var(--success)' : 'var(--accent)')}
+                  />
+                </>
+              )}
+            </div>
           </div>
         </>
       )}
