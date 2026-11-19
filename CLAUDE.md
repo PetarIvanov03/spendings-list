@@ -74,4 +74,6 @@ GitHub Actions builds `frontend` and deploys to GitHub Pages on push to `main`. 
 
 ## Rules for Claude Code
 
+For every change the family will notice, add an entry at the top of `RELEASE_NOTES.md`: Bulgarian, dated, a few plain sentences per feature, written for the family (no technical words); it is sent to them as a message with the app link.
+
 Keep the code small and readable, no speculative features, no extra dependencies without asking, ask before changing the database schema, and never put a secret key in the repo.
