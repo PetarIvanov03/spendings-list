@@ -10,7 +10,8 @@
     "dev:demo": "vite --mode demo",
     "typecheck": "tsc --noEmit",
     "preview": "vite preview",
-    "contrast": "node scripts/contrast-check.mjs"
+    "contrast": "node scripts/contrast-check.mjs",
+    "screenshots": "node scripts/screenshots.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.117.2",

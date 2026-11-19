@@ -82,8 +82,19 @@ GitHub Actions builds `frontend` (the app, then the demo into `dist/demo/`) and 
 
 `npm run typecheck && npm run build && npm run build:demo` from `frontend/`. Manual checks need real accounts: log in as a member and as the admin, add/edit/delete, trash restore and purge, offline add then reconnect (exactly one row), and try `supabase.from('categories').update(...)` as a member (RLS must change nothing).
 
+## Documentation
+
+| File | Audience, language | Keep in sync when |
+| :-- | :-- | :-- |
+| `README.md` | everyone, English | features, roles, setup or structure change |
+| `DEMO.md` | demo visitors, English | demo people, behaviour or build change |
+| `RELEASE_NOTES.md` | the family, Bulgarian | every change they will notice (rule below) |
+| `CLAUDE.md` | Claude Code, English | architecture or rules change |
+
+Shared look: centered header (`docs/logo.png`, title `Разходи · <page>`, one main link), emoji `##` headings, tables for comparisons, `<details>` for long setup text, GitHub alerts (`> [!NOTE]`). Screenshots in `docs/screenshots/` come ONLY from the demo build (made-up data), in light and dark (`<picture>` with `prefers-color-scheme`). Regenerate them after visible UI changes: `npm run build && npm run build:demo`, `npx vite preview --port 8791`, then `npm run screenshots` (headless Edge/Chrome, `scripts/screenshots.mjs`).
+
 ## Rules for Claude Code
 
-For every change the family will notice, add an entry at the top of `RELEASE_NOTES.md`: Bulgarian, dated, a few plain sentences per feature, written for the family (no technical words); it is sent to them as a message with the app link. Each entry ends with a "За Viber" code block ready to paste: Viber formatting only (`*bold*`, `_italic_`), emoji for structure, the app link as the last line (it makes the link preview from the `og:` tags in `index.html`).
+For every change the family will notice, add an entry to `RELEASE_NOTES.md`, right under the header (newest first, `## 📅 <date>`): Bulgarian, dated, a few plain sentences per feature, written for the family (no technical words); it is sent to them as a message with the app link. Each entry ends with a "За Viber" code block ready to paste: Viber formatting only (`*bold*`, `_italic_`), emoji for structure, the app link as the last line (it makes the link preview from the `og:` tags in `index.html`).
 
 Keep the code small and readable, no speculative features, no extra dependencies without asking, ask before changing the database schema, and never put a secret key in the repo.

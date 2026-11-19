@@ -1,73 +1,117 @@
-# spendings-list
+<div align="center">
 
-A phone-first web app for a family to log and review everyday expenses. It replaced a shared Google Sheet that had become slow, especially for monthly reports.
+<img src="docs/logo.png" width="88" alt="" />
 
-Everyone logs in with a name and a 6-digit PIN, adds expenses in a few taps, and sees their own monthly summary. An admin sees the whole family.
+# Разходи · spendings-list
 
-**Try the demo:** https://petarivanov03.github.io/spendings-list/demo/ (made-up data, nothing is saved).
+**A phone-first expense tracker for a family of four.**<br />
+Add an expense in three taps, see where the month went at a glance.
 
-<!--
-Screenshots: put images in docs/screenshots/ (use demo data only, never real expenses or names), then uncomment:
+[![Try the demo](https://img.shields.io/badge/▶_try_the_demo-2456d6?style=for-the-badge)](https://petarivanov03.github.io/spendings-list/demo/)
+&nbsp;
+[![Deploy](https://github.com/PetarIvanov03/spendings-list/actions/workflows/deploy.yml/badge.svg)](https://github.com/PetarIvanov03/spendings-list/actions/workflows/deploy.yml)
 
-<p>
-  <img src="docs/screenshots/add.png" width="240" alt="Add expense">
-  <img src="docs/screenshots/list.png" width="240" alt="Expense list">
-  <img src="docs/screenshots/summary.png" width="240" alt="Monthly summary">
+React &nbsp;·&nbsp; TypeScript &nbsp;·&nbsp; Vite &nbsp;·&nbsp; Supabase &nbsp;·&nbsp; GitHub Pages
+
+</div>
+
+<br />
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/add-dark.png" />
+    <img src="docs/screenshots/add-light.png" width="250" alt="Adding an expense" />
+  </picture>
+  &nbsp;
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/list-dark.png" />
+    <img src="docs/screenshots/list-light.png" width="250" alt="The family's expenses for the month" />
+  </picture>
+  &nbsp;
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/summary-dark.png" />
+    <img src="docs/screenshots/summary-light.png" width="250" alt="Monthly summary by category" />
+  </picture>
 </p>
--->
 
-## Features
+<p align="center"><sub>Screenshots from the <a href="DEMO.md">demo</a>: made-up people and amounts.</sub></p>
 
-- **Fast entry:** add an expense with amount, category, date and description.
-- **Personal templates:** repeating expenses (rent, subscriptions, phone bills) become one-tap chips; amount and description stay editable before saving.
-- **Personal or family:** every expense is marked "mine" (the default) or "family", e.g. fuel for my car vs. a family dinner; lists can filter by it and reports split the total.
-- **Monthly reports:** totals by member, by category, by both, and for the whole family.
-- **Phone and desktop:** built for phones; on a wide screen the same app gets a sidebar, side-by-side columns and a table-like list.
-- **Roles:** members see only their own expenses; parents see the whole family's expenses and reports but change only their own; the admin sees and manages everything.
-- **Trash:** deleting an expense moves it to a trash; the admin can restore it or delete it permanently.
-- **Category management (admin):** add, rename, reorder, and hide categories without losing history.
-- **Safe retries:** a lost response never creates a duplicate expense.
-- **Offline-tolerant:** expenses added without a connection wait in a local queue and are sent when the connection returns.
-- **Auto logout:** the session ends after 10 minutes of inactivity.
-- **Smooth, calm UI:** CSS-only transitions that respect `prefers-reduced-motion`.
+## ✨ Highlights
 
-## Tech stack
+**Everyday use**
+- ⚡ **Fast entry:** amount, what, date and category, then save. It saves at once and sends in the background.
+- 🔁 **Templates:** repeating expenses (rent, subscriptions, the bus) become one-tap chips.
+- 🏠 **Mine or family:** every expense is "mine" (the default) or "family". Lists filter by it and reports split the total.
+- 📊 **Monthly reports:** totals by category, by person, and for the whole family.
+- 💻 **Phone and desktop:** built for 360 px phones. On a wide screen it gets a sidebar, columns and a table-like list.
+
+**Family and roles**
+- 👥 **Three roles:** members, parents and an admin. Each role sees exactly what it should ([roles](#-roles)).
+- 🗂️ **Categories (admin):** add, rename, reorder and hide categories without losing history.
+- 🗑️ **Trash:** deleting is undoable. The admin can restore an expense or delete it for good.
+
+**Built to be trusted**
+- 🔒 **Rules in the database:** Row Level Security decides who sees what, not the UI.
+- 🧷 **No duplicates:** a lost response or a retry never saves an expense twice.
+- 📶 **Offline-tolerant:** expenses added offline wait in a queue and go out when the connection returns.
+- ⏱️ **Auto logout** after 10 minutes of inactivity, on this device only.
+- 🎨 **Calm UI:** light and dark themes, WCAG AA contrast, motion that respects `prefers-reduced-motion`.
+
+## 🎮 Demo
+
+**[petarivanov03.github.io/spendings-list/demo](https://petarivanov03.github.io/spendings-list/demo/)** is the full app with made-up data and no database behind it. Log in with one tap as the admin, a parent or a member and try everything. A reload starts over. More in **[DEMO.md](DEMO.md)**.
+
+## 👥 Roles
+
+| | Member | Parent | Admin |
+| :-- | :--: | :--: | :--: |
+| Add, edit and delete **own** expenses | ✅ | ✅ | ✅ |
+| See the **whole family's** expenses and report | | ✅ | ✅ |
+| Edit **other people's** expenses | | | ✅ |
+| Manage categories and the trash | | | ✅ |
+
+Roles live in `profiles` and only the admin can change them, so nobody can promote themselves. Hiding a button in the UI is only cosmetic: the database refuses anything a role may not do.
+
+## 🧱 How it is built
 
 | Layer | Choice |
-| --- | --- |
-| Frontend | React, TypeScript, Vite |
+| :-- | :-- |
+| Frontend | React, TypeScript, Vite, plain CSS (design tokens, no UI kit) |
 | Backend | Supabase: Postgres, Auth, Row Level Security |
 | Hosting | GitHub Pages, deployed by GitHub Actions |
-
-There is no server code of our own. The browser talks to Supabase directly with the public (publishable) key, and all access rules live in the database.
-
-## Architecture
 
 ```mermaid
 flowchart LR
   B[Browser<br/>React + TypeScript] -->|publishable key + user session| A[Supabase Auth]
   B -->|REST / RPC| P[(Postgres<br/>Row Level Security)]
-  G[GitHub Actions] -->|build + deploy| H[GitHub Pages]
+  G[GitHub Actions] -->|build app + demo| H[GitHub Pages]
   H --> B
 ```
 
-Data model: `profiles`, `categories`, `expenses`, `templates`, plus a `monthly_totals` view for reports. The full schema, policies and functions are in [`supabase/schema.sql`](supabase/schema.sql).
+There is no server code of our own. The browser talks to Supabase directly with the public (publishable) key, and every access rule lives in the database. Data model: `profiles`, `categories`, `expenses`, `templates` and a `monthly_totals` view for reports. See [`supabase/schema.sql`](supabase/schema.sql).
 
-## Design decisions
+<details>
+<summary><b>Design decisions</b></summary>
+<br />
 
-- **Security lives in the database.** The publishable key is safe in the browser only because Row Level Security is on for every table. Members can read and change only their own rows; parents can also read everyone's non-deleted rows; the admin and parent checks are `security definer` helpers. Only the admin can update `profiles`, so nobody can change their own role. Anonymous access is revoked.
+- **Security lives in the database.** The publishable key is safe in the browser only because Row Level Security is on for every table. Members read and change only their own rows; parents also read everyone's non-deleted rows. The admin and parent checks are `security definer` helpers. Anonymous access is revoked.
 - **No secret keys in the client.** The `service_role` / secret key is never used or committed. Operations that would need it, such as creating users, are done in the Supabase dashboard.
-- **Soft delete.** Expenses are marked with `deleted_at` through a `delete_expense()` function. RLS hides trashed rows from members and prevents them from un-deleting.
+- **Soft delete.** Expenses are marked with `deleted_at` through a `delete_expense()` function. RLS hides trashed rows from everyone but the admin and prevents un-deleting.
 - **Idempotent writes.** Each new expense gets a client-generated UUID (`client_id`, unique). If a response is lost and the app retries, the database rejects the duplicate and the app treats it as success.
-- **Reports in SQL.** `monthly_totals` aggregates by member, category and month with `security_invoker`, so the same view is correctly filtered for members and complete for parents and the admin.
-- **Per-device logout.** Auto logout uses `signOut({ scope: 'local' })` so signing out on one device does not end the user's sessions elsewhere, and it clears locally cached data.
-- **Login by name and PIN.** The typed name becomes an internal email (`<name>@spendings.app`) and the PIN is the password, which keeps Supabase Auth's session handling without asking family members for an email address.
+- **Reports in SQL.** `monthly_totals` aggregates by person, category, family flag and month with `security_invoker`, so the same view is filtered for members and complete for parents and the admin.
+- **Per-device logout.** Auto logout uses `signOut({ scope: 'local' })`, so it does not end the user's sessions on other devices, and it clears locally cached data.
+- **Login by name and PIN.** The typed name becomes an internal email (`<name>@spendings.app`) and the PIN is the password. This keeps Supabase Auth's session handling without asking anyone for an email address.
 
-A 6-digit PIN is a convenience-level credential suited to a small private app, not to sensitive data.
+> [!NOTE]
+> A 6-digit PIN is a convenience-level credential, suited to a small private app and not to sensitive data.
 
-## Getting started
+</details>
 
-### 1. Supabase project
+## 🚀 Getting started
+
+<details>
+<summary><b>1. Supabase project</b></summary>
+<br />
 
 1. Create a new Supabase project.
 2. In **Authentication**, turn off *Allow new users to sign up* and *Confirm email*.
@@ -77,54 +121,72 @@ A 6-digit PIN is a convenience-level credential suited to a small private app, n
    ```sql
    update public.profiles set is_admin = true where name = '<name>';
    ```
-6. Optionally make parents (they see the whole family, edit only their own; a user cannot be both admin and parent):
+6. Optionally make parents. They see the whole family and edit only their own; nobody can be both admin and parent.
    ```sql
    update public.profiles set is_parent = true where name in ('<name1>', '<name2>');
    ```
-   An existing database from before the parent role needs [`supabase/migration-parent-role.sql`](supabase/migration-parent-role.sql) first.
 
-### 2. Run the frontend locally
+A database created before a feature existed needs its migration first: [`migration-parent-role.sql`](supabase/migration-parent-role.sql), then [`migration-family-flag.sql`](supabase/migration-family-flag.sql).
+
+</details>
+
+<details>
+<summary><b>2. Run it locally</b></summary>
+<br />
 
 ```bash
 cd frontend
 npm ci
-npm run dev
+npm run dev        # the app, against your Supabase project
+npm run dev:demo   # the demo, with made-up data and no database
 ```
 
-Set `SUPABASE_URL` (without `/rest/v1/`) and `SUPABASE_PUBLISHABLE_KEY` in `frontend/src/config.ts`. The publishable key is safe to commit. Never use a secret or `service_role` key here.
+Set `SUPABASE_URL` (without `/rest/v1/`) and `SUPABASE_PUBLISHABLE_KEY` in [`frontend/src/config.ts`](frontend/src/config.ts). The publishable key is safe to commit. Never put a secret or `service_role` key there.
 
-### 3. Checks
+</details>
+
+<details>
+<summary><b>3. Checks</b></summary>
+<br />
 
 ```bash
 npm run typecheck
-npm run build
-npm run build:demo
+npm run build        # the app
+npm run build:demo   # the demo, into dist/demo
+npm run contrast     # WCAG AA check of every color pair
 ```
 
-## Demo
+</details>
 
-https://petarivanov03.github.io/spendings-list/demo/ is the same app with made-up data, for anyone who wants to look around:
+**Deployment:** every push to `main` builds the app and the demo and publishes both to GitHub Pages ([`deploy.yml`](.github/workflows/deploy.yml)).
 
-- Log in with one tap as the admin, a parent or a member (or type `maria`, `georgi`, `elena` or `niki` with any 6-digit PIN) and try everything each role can do.
-- The data lives only in the open page: a reload starts over, nothing is sent anywhere, and there is no database behind it.
-- It is a separate build of the same code (`npm run build:demo`, or `npm run dev:demo` locally): `src/supabase.ts` is swapped for `src/demo/backend.ts`, which answers the same requests from memory. The demo bundle contains no Supabase client, it keeps its browser storage apart from the real app, and it registers no service worker.
+## 📚 Documentation
 
-## Deployment
+| File | For | What is in it |
+| :-- | :-- | :-- |
+| [README.md](README.md) | everyone | This page |
+| [DEMO.md](DEMO.md) | visitors | The demo: who to log in as, what to try, how it is built |
+| [RELEASE_NOTES.md](RELEASE_NOTES.md) | the family | What's new, in Bulgarian, with a ready-to-paste Viber message |
+| [CLAUDE.md](CLAUDE.md) | AI-assisted development | Architecture, rules and conventions in detail |
+| [supabase/](supabase/) | setup | The schema and the migrations |
 
-Pushing to `main` builds `frontend` (the app, and the demo into `dist/demo/`) and publishes `frontend/dist` to GitHub Pages (`.github/workflows/deploy.yml`).
-
-## Project structure
+## 📁 Project structure
 
 ```
-frontend/              React + TypeScript + Vite app
-supabase/schema.sql    Database schema, RLS policies, functions, report view
-.github/workflows/     Build and deploy to GitHub Pages
-CLAUDE.md              Notes for AI-assisted development
+frontend/
+  src/               app (screens, data layer, styles)
+  src/demo/          demo backend and made-up people
+  public/            icons, manifest, service worker
+supabase/            schema.sql and migrations
+docs/                logo and screenshots for the docs
+.github/workflows/   build and deploy to GitHub Pages
 ```
 
-The app was built with AI assistance (Claude Code); `CLAUDE.md` documents the conventions it follows.
-
-## Roadmap
+## 🗺️ Roadmap
 
 - Member management inside the app (needs a privileged server-side function)
 - Smooth animations for deleting and reordering rows
+
+<br />
+
+<p align="center"><sub>Built with AI assistance (Claude Code). <a href="CLAUDE.md">CLAUDE.md</a> documents the conventions it follows.</sub></p>
