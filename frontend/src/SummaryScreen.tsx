@@ -103,7 +103,7 @@ export function SummaryScreen({ user }: { user: Session['user'] }) {
                 total={data.total}
                 rows={data.byUser.map((u) => ({
                   key: u.user,
-                  label: u.user === '(unassigned)' ? 'Без потребител' : u.user,
+                  label: u.user || 'Без потребител',
                   amount: u.total,
                 }))}
                 colorOf={() => 'var(--accent)'}

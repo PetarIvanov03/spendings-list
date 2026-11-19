@@ -110,9 +110,9 @@ language sql
 stable
 security definer
 set search_path = public
-as $
+as $$
   select coalesce((select is_parent from public.profiles where id = auth.uid()), false);
-$;
+$$;
 
 -- Изтриване в кошчето: собственик или админ.
 create or replace function public.delete_expense(p_id bigint)

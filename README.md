@@ -19,7 +19,7 @@ Screenshots: put images in docs/screenshots/ (use demo data only, never real exp
 - **Fast entry:** add an expense with amount, category, date and description.
 - **Personal templates:** repeating expenses (rent, subscriptions, phone bills) become one-tap chips; amount and description stay editable before saving.
 - **Monthly reports:** totals by member, by category, by both, and for the whole family.
-- **Roles:** members see only their own expenses; the admin sees everyone's.
+- **Roles:** members see only their own expenses; parents see the whole family's expenses and reports but change only their own; the admin sees and manages everything.
 - **Trash:** deleting an expense moves it to a trash; the admin can restore it or delete it permanently.
 - **Category management (admin):** add, rename, reorder, and hide categories without losing history.
 - **Safe retries:** a lost response never creates a duplicate expense.
@@ -51,11 +51,11 @@ Data model: `profiles`, `categories`, `expenses`, `templates`, plus a `monthly_t
 
 ## Design decisions
 
-- **Security lives in the database.** The publishable key is safe in the browser only because Row Level Security is on for every table. Members can read and change only their own rows; the admin check is a `security definer` helper. Anonymous access is revoked.
+- **Security lives in the database.** The publishable key is safe in the browser only because Row Level Security is on for every table. Members can read and change only their own rows; parents can also read everyone's non-deleted rows; the admin and parent checks are `security definer` helpers. Only the admin can update `profiles`, so nobody can change their own role. Anonymous access is revoked.
 - **No secret keys in the client.** The `service_role` / secret key is never used or committed. Operations that would need it, such as creating users, are done in the Supabase dashboard.
 - **Soft delete.** Expenses are marked with `deleted_at` through a `delete_expense()` function. RLS hides trashed rows from members and prevents them from un-deleting.
 - **Idempotent writes.** Each new expense gets a client-generated UUID (`client_id`, unique). If a response is lost and the app retries, the database rejects the duplicate and the app treats it as success.
-- **Reports in SQL.** `monthly_totals` aggregates by member, category and month with `security_invoker`, so the same view is correctly filtered for members and complete for the admin.
+- **Reports in SQL.** `monthly_totals` aggregates by member, category and month with `security_invoker`, so the same view is correctly filtered for members and complete for parents and the admin.
 - **Per-device logout.** Auto logout uses `signOut({ scope: 'local' })` so signing out on one device does not end the user's sessions elsewhere, and it clears locally cached data.
 - **Login by name and PIN.** The typed name becomes an internal email (`<name>@spendings.app`) and the PIN is the password, which keeps Supabase Auth's session handling without asking family members for an email address.
 
@@ -73,6 +73,11 @@ A 6-digit PIN is a convenience-level credential suited to a small private app, n
    ```sql
    update public.profiles set is_admin = true where name = '<name>';
    ```
+6. Optionally make parents (they see the whole family, edit only their own; a user cannot be both admin and parent):
+   ```sql
+   update public.profiles set is_parent = true where name in ('<name1>', '<name2>');
+   ```
+   An existing database from before the parent role needs [`supabase/migration-parent-role.sql`](supabase/migration-parent-role.sql) first.
 
 ### 2. Run the frontend locally
 
