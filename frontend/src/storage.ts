@@ -1,5 +1,9 @@
+import { IS_DEMO } from './config';
+
 // localStorage can throw (private mode, blocked site data), so every access is guarded.
-const PREFIX = 'spend:';
+// The demo has its own prefix: it shares the origin with the real app (same GitHub Pages
+// domain) and must never read or clear the real app's session, caches or unsent expenses.
+const PREFIX = IS_DEMO ? 'spend-demo:' : 'spend:';
 
 export const store = {
   get(key: string): string | null {

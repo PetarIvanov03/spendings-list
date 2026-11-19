@@ -1870,6 +1870,53 @@ input[type='color'] {
 }
 
 /* =====================================================================
+   Demo build only (Login.tsx DemoBanner, demo login buttons)
+   ===================================================================== */
+.demo-banner {
+  padding: var(--sp-2) var(--sp-4);
+  background: var(--warning-soft);
+  color: var(--warning);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  text-align: center;
+}
+
+.login .demo-banner {
+  margin: 0 calc(-1 * var(--sp-6)) var(--sp-3);
+}
+
+.demo-login {
+  margin-top: var(--sp-4);
+}
+
+.demo-users {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-2);
+}
+
+.demo-users button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 56px;
+  padding: var(--sp-1) var(--sp-3);
+  line-height: 1.2;
+}
+
+.demo-role {
+  color: var(--text-3);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+.demo-login > .muted {
+  font-size: var(--fs-sm);
+}
+
+/* =====================================================================
    Desktop (min-width 960px; useMediaQuery.ts uses the same number).
    Same screens and components as on phones, laid out for a wide screen:
    a sidebar instead of the top and bottom bars, wider pages, side-by-side columns,

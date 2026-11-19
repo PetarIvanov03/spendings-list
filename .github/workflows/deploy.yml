@@ -33,6 +33,10 @@ jobs:
       - name: Build
         working-directory: frontend
         run: npm run build
+      # Demo (made-up data, no database) at /spendings-list/demo/, inside the same artifact.
+      - name: Build demo
+        working-directory: frontend
+        run: npm run build:demo
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

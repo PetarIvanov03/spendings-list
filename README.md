@@ -4,6 +4,8 @@ A phone-first web app for a family to log and review everyday expenses. It repla
 
 Everyone logs in with a name and a 6-digit PIN, adds expenses in a few taps, and sees their own monthly summary. An admin sees the whole family.
 
+**Try the demo:** https://petarivanov03.github.io/spendings-list/demo/ (made-up data, nothing is saved).
+
 <!--
 Screenshots: put images in docs/screenshots/ (use demo data only, never real expenses or names), then uncomment:
 
@@ -96,11 +98,20 @@ Set `SUPABASE_URL` (without `/rest/v1/`) and `SUPABASE_PUBLISHABLE_KEY` in `fron
 ```bash
 npm run typecheck
 npm run build
+npm run build:demo
 ```
+
+## Demo
+
+https://petarivanov03.github.io/spendings-list/demo/ is the same app with made-up data, for anyone who wants to look around:
+
+- Log in with one tap as the admin, a parent or a member (or type `maria`, `georgi`, `elena` or `niki` with any 6-digit PIN) and try everything each role can do.
+- The data lives only in the open page: a reload starts over, nothing is sent anywhere, and there is no database behind it.
+- It is a separate build of the same code (`npm run build:demo`, or `npm run dev:demo` locally): `src/supabase.ts` is swapped for `src/demo/backend.ts`, which answers the same requests from memory. The demo bundle contains no Supabase client, it keeps its browser storage apart from the real app, and it registers no service worker.
 
 ## Deployment
 
-Pushing to `main` builds `frontend` and publishes `frontend/dist` to GitHub Pages (`.github/workflows/deploy.yml`).
+Pushing to `main` builds `frontend` (the app, and the demo into `dist/demo/`) and publishes `frontend/dist` to GitHub Pages (`.github/workflows/deploy.yml`).
 
 ## Project structure
 
@@ -117,4 +128,3 @@ The app was built with AI assistance (Claude Code); `CLAUDE.md` documents the co
 
 - Member management inside the app (needs a privileged server-side function)
 - Smooth animations for deleting and reordering rows
-- Demo deployment with sample data

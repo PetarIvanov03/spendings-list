@@ -3,5 +3,8 @@
 export const SUPABASE_URL = 'https://nkytrjkdpqwgfpqtukck.supabase.co'; // https://<project_id>.supabase.co (no /rest/v1/)
 export const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_V4hFEJ512LLN8Xul2ucUaQ_ng99mfAS';
 
+// The demo build (vite --mode demo): made-up data, no Supabase. See vite.config.ts.
+export const IS_DEMO = import.meta.env.MODE === 'demo';
+
 // Automatic logout after this long without any activity (checked, not just timed: see idle.ts).
 export const IDLE_TIMEOUT_MS = 10 * 60 * 1000;

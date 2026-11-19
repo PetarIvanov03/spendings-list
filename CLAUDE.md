@@ -61,16 +61,26 @@ When a new expense is first saved on the Add screen, `crypto.randomUUID()` is ge
 - **Design system** (visual only): tokens at the top of `styles.css` (light/dark via `prefers-color-scheme`), system fonts, inline SVG icons, no icon library, no CSS framework. `npm run contrast` checks WCAG AA for every token pair and category chip color; run it after changing a color. Skeleton loading states, `prefers-reduced-motion` respected.
 - **Stale-while-revalidate** (`cache.ts`, `useFetch.ts`): categories, the current month's list and last viewed list/summary are cached in memory and localStorage, scoped by user name, cleared on logout and `UNAUTHORIZED`. After a write the caches are marked stale, not dropped. PINs are never cached.
 - **PWA**: `manifest.webmanifest`, minimal `sw.js` that caches only the static app shell, never cross-origin or non-GET requests (so never Supabase calls); registered only in production as `sw.js?v=<build id>`.
-- Layout (`frontend/src`): `api.ts`, `supabase.ts`, `config.ts`, `auth.ts`, `storage.ts`, `messages.ts`, `write.ts`, `bootstrap.ts`, `App.tsx`, `Shell.tsx`, screens (`Login`, `AddScreen`, `ListScreen` + `ExpenseSheet`, `SummaryScreen`, `AdminScreen` -> `AdminCategories`, `AdminTrash`), shared (`components.tsx`, `icons.tsx`, `PinPad.tsx`, `useFetch.ts`, `useMediaQuery.ts`, `categories.ts`, `online.tsx`, `toast.tsx`, `format.ts`, `types.ts`).
+- Layout (`frontend/src`): `api.ts`, `supabase.ts`, `config.ts`, `auth.ts`, `storage.ts`, `messages.ts`, `write.ts`, `bootstrap.ts`, `App.tsx`, `Shell.tsx`, screens (`Login`, `AddScreen`, `ListScreen` + `ExpenseSheet`, `SummaryScreen`, `AdminScreen` -> `AdminCategories`, `AdminTrash`), shared (`components.tsx`, `icons.tsx`, `PinPad.tsx`, `useFetch.ts`, `useMediaQuery.ts`, `categories.ts`, `online.tsx`, `toast.tsx`, `format.ts`, `types.ts`), demo (`demo/backend.ts`, `demo/users.ts`).
 - Dependencies stay minimal: React, Vite, TypeScript, `@supabase/supabase-js` (exact version). Ask before adding more.
+
+## Demo build (`/spendings-list/demo/`)
+
+Same code, made-up data, no database. `vite --mode demo` (`npm run build:demo` -> `dist/demo`, `npm run dev:demo`) aliases `./supabase` to `src/demo/backend.ts`; `IS_DEMO` (config.ts) switches the few demo-only bits.
+
+- `demo/backend.ts` mirrors `supabase.ts`: same actions, payloads, results and error codes, and the same role rules as RLS (member own rows, parent reads all but edits own, admin all + trash + categories). **Any new action or field in `supabase.ts` goes into `demo/backend.ts` too**, or the demo breaks.
+- Data: seeded generator, about 3 months back from today, kept in memory (a reload starts over). Demo people are in `demo/users.ts` (`maria` admin, `georgi`/`elena` parents, `niki` member); any 6-digit PIN. Only made-up names and amounts: the repo is public.
+- Isolation from the real app (same origin, petarivanov03.github.io): storage prefix `spend-demo:` instead of `spend:`, no service worker in the demo, the real `sw.js` ignores `/demo/`, the demo page has no manifest. The demo bundle must not contain the Supabase client: after a build, `dist/demo/assets/*.js` must not mention `supabase.co`.
+- Demo-only UI: `DemoBanner` (Login and Shell) and the one-tap role buttons on Login.
+- `RELEASE_NOTES.md` is only about the real app; the demo is never mentioned there.
 
 ## Deployment
 
-GitHub Actions builds `frontend` and deploys to GitHub Pages on push to `main`. Supabase URL and publishable key are in `config.ts` (no secrets, no repository variables needed).
+GitHub Actions builds `frontend` (the app, then the demo into `dist/demo/`) and deploys to GitHub Pages on push to `main`. Supabase URL and publishable key are in `config.ts` (no secrets, no repository variables needed).
 
 ## Checks
 
-`npm run typecheck && npm run build` from `frontend/`. Manual checks need real accounts: log in as a member and as the admin, add/edit/delete, trash restore and purge, offline add then reconnect (exactly one row), and try `supabase.from('categories').update(...)` as a member (RLS must change nothing).
+`npm run typecheck && npm run build && npm run build:demo` from `frontend/`. Manual checks need real accounts: log in as a member and as the admin, add/edit/delete, trash restore and purge, offline add then reconnect (exactly one row), and try `supabase.from('categories').update(...)` as a member (RLS must change nothing).
 
 ## Rules for Claude Code
 

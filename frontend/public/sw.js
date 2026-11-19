@@ -61,6 +61,7 @@ self.addEventListener('fetch', (event) => {
   if (request.method !== 'GET') return;
   const url = new URL(request.url);
   if (url.origin !== self.location.origin || !url.href.startsWith(SCOPE)) return;
+  if (url.href.startsWith(SCOPE + 'demo/')) return; // the demo is a separate app: never cache it as ours
 
   if (request.mode === 'navigate') event.respondWith(networkFirst(request, SCOPE));
   else if (url.pathname.includes('/assets/')) event.respondWith(cacheFirst(request));

@@ -8,6 +8,8 @@ import { useOnline } from './online';
 import { AddScreen } from './AddScreen';
 import { AdminScreen } from './AdminScreen';
 import { ChangePinSheet } from './ChangePin';
+import { IS_DEMO } from './config';
+import { DemoBanner } from './Login';
 import { ListScreen } from './ListScreen';
 import { SummaryScreen } from './SummaryScreen';
 
@@ -98,6 +100,7 @@ export function Shell({ user, onLogout, onPinChanged }: {
       </aside>
 
       <div className="main">
+        {IS_DEMO && <DemoBanner />}
         {!online && (
           <div className="offline" role="status">
             <IconWifiOff size={18} />

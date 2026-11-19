@@ -1,7 +1,9 @@
 import { useRef, useState, type FormEvent } from 'react';
 import { ApiError, call } from './api';
 import { saveSession, type Session } from './auth';
+import { IS_DEMO } from './config';
 import { markAction } from './debug';
+import { DEMO_USERS } from './demo/users';
 import { IconAlert, IconEye, IconEyeOff, LogoMark } from './icons';
 import { errorText } from './messages';
 
@@ -21,9 +23,13 @@ export function Login({ onLogin, notice }: { onLogin: (s: Session) => void; noti
   // No auto-submit: the button is enabled only with exactly 6 digits.
   const canSubmit = !busy && name.trim().length > 0 && /^\d{6}$/.test(pin);
 
-  async function submit(e: FormEvent) {
+  function submit(e: FormEvent) {
     e.preventDefault();
-    if (!canSubmit || inFlight.current) return;
+    if (canSubmit) void logIn(name, pin);
+  }
+
+  async function logIn(name: string, pin: string) {
+    if (inFlight.current) return;
     markAction('login');
     inFlight.current = true;
     setBusy(true);
@@ -48,6 +54,7 @@ export function Login({ onLogin, notice }: { onLogin: (s: Session) => void; noti
 
   return (
     <main className="login">
+      {IS_DEMO && <DemoBanner />}
       <div className="login-brand">
         <LogoMark size={48} />
         <div>
@@ -118,6 +125,30 @@ export function Login({ onLogin, notice }: { onLogin: (s: Session) => void; noti
           {busy ? 'Влизане…' : retry ? 'Опитай пак' : 'Вход'}
         </button>
       </form>
+
+      {IS_DEMO && (
+        <section className="demo-login" aria-label="Демо вход">
+          <p className="label">Или влез направо като:</p>
+          <div className="demo-users">
+            {DEMO_USERS.map((u) => (
+              <button key={u.name} type="button" className="secondary" disabled={busy} onClick={() => void logIn(u.name, '000000')}>
+                <span>{u.name}</span>
+                <span className="demo-role">{u.label}</span>
+              </button>
+            ))}
+          </div>
+          <p className="muted">Всяко от тези имена влиза с произволен ПИН от 6 цифри.</p>
+        </section>
+      )}
     </main>
+  );
+}
+
+// Demo build only: always visible, so nobody mistakes it for the real app.
+export function DemoBanner() {
+  return (
+    <p className="demo-banner" role="note">
+      Демо: измислени данни, нищо не се пази
+    </p>
   );
 }

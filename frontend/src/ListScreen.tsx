@@ -64,8 +64,8 @@ export function ListScreen({ user }: { user: Session['user'] }) {
     <Dropdown
       label="Тип"
       value={kind}
-      // short closed labels: for members it shares a row with the total on 360px phones
-      text={kind === 'family' ? 'Семейни' : kind === 'personal' ? 'Лични' : family ? 'Лични и семейни' : 'Всички'}
+      // short closed labels: they must fit a 360px phone (half a row, or next to the total)
+      text={kind === 'family' ? 'Семейни' : kind === 'personal' ? 'Лични' : 'Тип: всички'}
       defaultValue={null}
       onChange={setKind}
       options={KIND_OPTIONS}

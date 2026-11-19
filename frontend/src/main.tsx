@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
 import { runBootstrap } from './bootstrap';
+import { IS_DEMO } from './config';
 import { isIdleExpired } from './idle';
 import './styles.css';
 
@@ -16,7 +17,8 @@ createRoot(document.getElementById('root')!).render(
 
 // Service worker: production only. When a new build takes over, reload once so nobody
 // stays on an old version (skipped on the very first visit, when there is nothing to replace).
-if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+// Not in the demo: it lives inside the real app's scope and must not install a worker there.
+if (import.meta.env.PROD && !IS_DEMO && 'serviceWorker' in navigator) {
   const base = import.meta.env.BASE_URL;
   const hadController = navigator.serviceWorker.controller !== null;
   let reloaded = false;
