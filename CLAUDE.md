@@ -94,6 +94,27 @@ GitHub Actions builds `frontend` (the app, then the demo into `dist/demo/`) and 
 
 Shared look: centered header (`docs/logo.png`, title `Разходи · <page>`, one main link), emoji `##` headings, tables for comparisons, `<details>` for long setup text, GitHub alerts (`> [!NOTE]`). Screenshots in `docs/screenshots/` come ONLY from the demo build (made-up data), in light and dark (`<picture>` with `prefers-color-scheme`). Regenerate them after visible UI changes: `npm run build && npm run build:demo`, `npx vite preview --port 8791`, then `npm run screenshots` (headless Edge/Chrome, `scripts/screenshots.mjs`).
 
+## Ask first (always)
+
+Three things are the user's call, never yours. Ask, wait for the answer, then act.
+
+1. **Commit and push.** Never commit or push on your own, not even at the end of a finished task. When the work is done: show what changed, propose a commit message and ask. Commit only when the user says so in that message ("commit", "къмитни"); push only when they also say push ("commit и push"). One approval = one commit; it does not carry over to the next change. A push to `main` that touches `frontend/` deploys to the family's phones, so say that when asking. If a migration must run in Supabase first, say so and wait until the user confirms it ran.
+2. **When unsure.** Unclear request, two reasonable ways to do it, a product or wording decision, or something in the existing code that looks wrong → ask one short question with your recommendation first. Don't guess and don't build both. Implementation details you can decide from the code: decide, and mention them in the report.
+3. **Breaking changes.** Anything that changes what the family (or their devices) already have:
+   - the database: schema, RLS policies, functions, the `monthly_totals` view (migration file + the user runs it before deploy);
+   - what browsers have stored: localStorage keys and prefixes (`spend:`, `spend-demo:`), the `session` mirror, `pending:<user>` items (an old queued item must still send), cache entry shapes;
+   - the PWA: `base`, URLs, `manifest.webmanifest` (`start_url`, `scope`, `id`, icons), service worker cache prefixes (`spend-` / `demo-`) and scopes — installed apps keep the old ones;
+   - roles and who can see or change what; removing or renaming a feature; defaults (e.g. "Мой").
+   Say what breaks for whom and how you'd migrate, then wait.
+
+Before editing, check `git status`: leave the user's own uncommitted work alone and never revert it.
+
+## Working with the user
+
+- Reply in the user's language (Bulgarian), short; code, comments, commits and docs in English (except `RELEASE_NOTES.md`).
+- Plan as a task list, then do it. Report honestly: what changed, what was verified and how, what was NOT verified (e.g. no real account, not tested on a real phone).
+- No real data anywhere in the repo or in screenshots: data exports stay git-ignored and are deleted when done.
+
 ## Rules for Claude Code
 
 For every change the family will notice, add an entry to `RELEASE_NOTES.md`, right under the header (newest first, `## 📅 <date>`): Bulgarian, dated, a few plain sentences per feature, written for the family (no technical words); it is sent to them as a message with the app link. Each entry ends with a "За Viber" code block ready to paste: Viber formatting only (`*bold*`, `_italic_`), emoji for structure, the app link as the last line (it makes the link preview from the `og:` tags in `index.html`).
